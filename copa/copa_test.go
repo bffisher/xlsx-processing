@@ -7,26 +7,31 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
-const TEST_FILE_PATH = "../test_files/copatest.xlsx"
-const TEST_SHEET_NAME = "by p10"
+const TEST_COPA_PATH = "../test_files/copa/"
 
 var test_xlsx *excelize.File
 var test_header *header_t
+var test_conf *config_t
 
-func Init() {
+func Test_handleConfig(t *testing.T) {
+	conf, err := handleConfig(TEST_COPA_PATH + "_conf.xlsx")
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	test_conf = &conf
 }
 
 func Test_OpenXlsx(t *testing.T) {
 	var err error
-	test_xlsx, err = excelize.OpenFile(TEST_FILE_PATH)
+	test_xlsx, err = excelize.OpenFile(TEST_COPA_PATH + test_conf.filePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func Test_handleHeader(t *testing.T) {
-	header, err := handleHeader(test_xlsx, TEST_SHEET_NAME)
+	header, err := handleHeader(test_xlsx, test_conf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,11 +64,11 @@ func Test_handleHeader(t *testing.T) {
 }
 
 func Test_handleBody(t *testing.T) {
-	handleBody(test_xlsx, TEST_SHEET_NAME, test_header)
+	handleBody(test_xlsx, test_conf, test_header)
 }
 
 func Test_End(t *testing.T) {
-	err := test_xlsx.SaveAs(strings.Replace(TEST_FILE_PATH, ".xlsx", "_res.xlsx", -1))
+	err := test_xlsx.SaveAs(strings.Replace(TEST_COPA_PATH+test_conf.filePath, ".xlsx", "_res.xlsx", -1))
 	if err != nil {
 		t.Fatal(err)
 	}

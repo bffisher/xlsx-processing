@@ -1,30 +1,33 @@
 package main
 
 import (
-	"flag"
 	"log"
+	"os"
 	"xlsx-processing/copa"
 )
 
-func main() {
-	what := flag.String("what", "", "What do you want to do")
-	filePath := flag.String("file", "", "xlsx file full name")
-	sheetName := flag.String("sheet", "", "sheet name")
-	flag.Parse()
+const CONFIG_FILE_PATH = "_conf.xlsx"
 
-	switch *what {
+func main() {
+	var what string = ""
+	if len(os.Args) > 1 {
+		what = os.Args[1]
+	}
+
+	switch what {
 	case "copa":
-		execCopa(filePath, sheetName)
+		execCopa()
 	default:
-		log.Fatalln("What do you want to do, -h for help")
+		log.Fatalln("What do you want to do ?")
 	}
 }
 
-func execCopa(filePath, sheetName *string) {
-	flag.Parse()
-	err := copa.Exec(*filePath, *sheetName)
+func execCopa() {
+	err := copa.Exec(CONFIG_FILE_PATH)
 
 	if err != nil {
 		log.Fatalln("Ocur an error when handling copa.", err)
 	}
+
+	log.Println("Completed successfully.")
 }
