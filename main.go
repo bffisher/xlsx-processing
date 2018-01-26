@@ -9,16 +9,16 @@ import (
 const CONFIG_FILE_PATH = "_conf.xlsx"
 
 func main() {
-	var what string = ""
+	var task string = ""
 	if len(os.Args) > 1 {
-		what = os.Args[1]
+		task = os.Args[1]
 	}
 
-	switch what {
+	switch task {
 	case "copa":
 		execCopa()
 	default:
-		log.Fatalln("What do you want to do ?")
+		log.Printf("Can not identify the task named '%s'\n", task)
 	}
 }
 
@@ -26,7 +26,8 @@ func execCopa() {
 	err := copa.Exec(CONFIG_FILE_PATH)
 
 	if err != nil {
-		log.Fatalln("Ocur an error when handling copa.", err)
+		log.Println("Ocur an error when handling 'copa' task.")
+		log.Fatalln(err)
 	}
 
 	log.Println("Completed successfully.")
