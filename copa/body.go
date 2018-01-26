@@ -15,9 +15,9 @@ func handleBody(xlsx *excelize.File, conf *config_t, header *header_t) {
 		index++
 
 		export := strings.TrimSpace(row[header.exportIdx])
-		trad := extractCode(row[header.exportIdx])
-		profitCenter := extractCode(row[header.profitCenterIdx])
-		partnerProfitCenter := extractCode(row[header.partnerProfitCenterIdx])
+		trad := util.ExtractCode(row[header.exportIdx])
+		profitCenter := util.ExtractCode(row[header.profitCenterIdx])
+		partnerProfitCenter := util.ExtractCode(row[header.partnerProfitCenterIdx])
 
 		xlsx.SetCellStr(conf.sheetName, util.Axis(index, header.hierarchyIdx), conf.hierarchyValues[profitCenter])
 
@@ -26,10 +26,6 @@ func handleBody(xlsx *excelize.File, conf *config_t, header *header_t) {
 			xlsx.SetCellStr(conf.sheetName, util.Axis(index, header.businessIdx), conf.businessValues[businessKey])
 		}
 	}
-}
-
-func extractCode(value string) string {
-	return strings.TrimSpace(strings.Split(value, ":")[0])
 }
 
 func calculateBusiness(export, trad, profitCenter, partnerProfitCenter string) string {
