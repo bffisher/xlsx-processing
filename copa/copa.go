@@ -6,10 +6,6 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
-type header_t struct {
-	hierarchyIdx, businessIdx, exportIdx, tradPartnIdx, profitCenterIdx, partnerProfitCenterIdx int
-}
-
 func Exec(confFilePath string) error {
 	config, err := handleConfig(confFilePath)
 	if err != nil {

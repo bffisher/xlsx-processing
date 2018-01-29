@@ -7,6 +7,10 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
+type header_t struct {
+	hierarchyIdx, businessIdx, exportIdx, tradPartnIdx, profitCenterIdx, partnerProfitCenterIdx int
+}
+
 func handleHeader(xlsx *excelize.File, conf *config_t) (header_t, error) {
 	header := header_t{-1, -1, -1, -1, -1, -1}
 	rows := xlsx.GetRows(conf.sheetName)
