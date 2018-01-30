@@ -1,7 +1,7 @@
 package icbdb
 
 import (
-	"fmt"
+	"log"
 	"strconv"
 	"xlsx-processing/util"
 
@@ -172,8 +172,8 @@ func convertToFloat(val string) float64 {
 
 	res, err := strconv.ParseFloat(val, 64)
 	if err != nil {
-		fmt.Println("Converting to float failed", val)
-		fmt.Println(err)
+		log.Println("Converting to float failed", val)
+		log.Println(err)
 	}
 	return res
 }

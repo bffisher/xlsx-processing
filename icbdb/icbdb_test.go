@@ -2,7 +2,7 @@ package icbdb
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"testing"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -23,7 +23,7 @@ func Test_readConfig(t *testing.T) {
 	test_data.conf = conf
 }
 func Test_OpenXlsx(t *testing.T) {
-	fmt.Print("Reading ... ")
+	log.Print("Reading ... ")
 	xlsx, err := excelize.OpenFile(TEST_FILE_PATH + test_data.conf.files["OD"])
 	if err != nil {
 		t.Fatal(err)
@@ -47,11 +47,11 @@ func Test_handleHeader(t *testing.T) {
 	test_data.odHeader = odHeader
 	test_data.odCopaRows = test_data.odCopaRows[1:]
 	test_data.odIcbOrdRows = test_data.odIcbOrdRows[1:]
-	fmt.Println("OK!")
+	log.Println("OK!")
 }
 
 func Test_splitIcbDb(t *testing.T) {
-	fmt.Print("Calculating ... ")
+	log.Print("Calculating ... ")
 	splitIcbDb(test_data)
 }
 
@@ -61,11 +61,11 @@ func Test_resolveIcbDbRelation(t *testing.T) {
 
 func Test_handleUnusedDb(t *testing.T) {
 	handleUnusedDb(test_data)
-	fmt.Println("OK!")
+	log.Println("OK!")
 }
 
 func Test_result(t *testing.T) {
-	fmt.Print("Outputing ... ")
+	log.Print("Outputing ... ")
 	output(test_data, TEST_FILE_PATH)
-	fmt.Println("OK!")
+	log.Println("OK!")
 }

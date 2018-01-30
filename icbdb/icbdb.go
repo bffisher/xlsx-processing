@@ -2,7 +2,7 @@ package icbdb
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"strings"
 	"xlsx-processing/util"
 
@@ -35,7 +35,7 @@ type data_t struct {
 func Exec(confFilePath string) error {
 	data := &data_t{}
 
-	fmt.Print("Reading... ")
+	log.Print("Reading... ")
 	conf, err := readConfig(confFilePath)
 	if err != nil {
 		return err
@@ -65,17 +65,17 @@ func Exec(confFilePath string) error {
 	data.odHeader = odHeader
 	data.odCopaRows = odCopaRows[1:]
 	data.odIcbOrdRows = odIcbOrdRows[1:]
-	fmt.Println("OK!")
+	log.Println("OK!")
 
-	fmt.Print("Calculating... ")
+	log.Print("Calculating... ")
 	splitIcbDb(data)
 	resolveIcbDbRelation(data)
 	handleUnusedDb(data)
-	fmt.Println("OK!")
+	log.Println("OK!")
 
-	fmt.Print("Outputing... ")
+	log.Print("Outputing... ")
 	output(data, "")
-	fmt.Println("OK1")
+	log.Println("OK1")
 	return nil
 }
 
