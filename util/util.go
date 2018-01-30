@@ -47,15 +47,36 @@ func ReadConfig(filePath string) ([][]string, error) {
 	return rows[1:], nil
 }
 
-func CopyRowToMap(dic *map[string]string, row []string, keyIdx, valIdx int) {
+func CopyRowToMap(dic map[string]string, row []string, keyIdx, valIdx int) {
 	if row[keyIdx] != "" {
-		(*dic)[row[keyIdx]] = row[valIdx]
+		dic[row[keyIdx]] = row[valIdx]
 	}
 }
 
-func CopyRowToMapWithFunc(dic *map[string]string, row []string, keyIdx, valIdx int, handle func(string, string) (string, string)) {
+func CopyRowToMapWithFunc(dic map[string]string, row []string, keyIdx, valIdx int, handle func(string, string) (string, string)) {
 	if row[keyIdx] != "" {
 		key, value := handle(row[keyIdx], row[valIdx])
-		(*dic)[key] = value
+		dic[key] = value
 	}
+}
+
+func ConvColNameToIdx(row []string, colNames map[string]string, colIdxs map[string]int, keyFilter func(key string) bool) {
+	for index, col := range row {
+		col := strings.TrimSpace(col)
+		for key, name := range colNames {
+			if name == col && (keyFilter == nil || keyFilter(key)) {
+				colIdxs[key] = index
+				break
+			}
+		}
+	}
+}
+
+func CheckColNameIdx(colNames map[string]string, colIdxs map[string]int) error {
+	for key, name := range colNames {
+		if _, ok := colIdxs[key]; !ok {
+			return errors.New("Can not find '" + name + "' column")
+		}
+	}
+	return nil
 }

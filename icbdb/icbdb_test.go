@@ -2,7 +2,7 @@ package icbdb
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"testing"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -13,20 +13,23 @@ const TEST_FILE_PATH = "../test_files/icbdb/"
 var test_xlsx *excelize.File
 var test_data *data_t
 
-func Test_handleConfig(t *testing.T) {
+func Test_readConfig(t *testing.T) {
 	test_data = &data_t{}
-	conf, err := handleConfig(TEST_FILE_PATH + "_conf.xlsx")
+	conf, err := readConfig(TEST_FILE_PATH + "_conf.xlsx")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	test_data.conf = &conf
+	test_data.conf = conf
 }
 func Test_OpenXlsx(t *testing.T) {
-	xlsx, err := excelize.OpenFile(TEST_FILE_PATH + test_data.conf.files["OD_FILE"])
+	fmt.Print("Reading ... ")
+	xlsx, err := excelize.OpenFile(TEST_FILE_PATH + test_data.conf.files["OD"])
 	if err != nil {
 		t.Fatal(err)
 	}
+	test_data.odXlsx = xlsx
+
 	test_data.odCopaRows = xlsx.GetRows(test_data.conf.sheets["OD_COPA"])
 	if len(test_data.odCopaRows) < 2 {
 		t.Fatal(errors.New("Can not find 'COPA original data' sheet"))
@@ -37,22 +40,18 @@ func Test_OpenXlsx(t *testing.T) {
 	}
 }
 func Test_handleHeader(t *testing.T) {
-	odCopaHeader, err := handleODCopaHeader(test_data.odCopaRows[0], test_data.conf)
+	odHeader, err := getODHeader(test_data.odCopaRows[0], test_data.odIcbOrdRows[0], test_data.conf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	test_data.odCopaHeader = &odCopaHeader
+	test_data.odHeader = odHeader
 	test_data.odCopaRows = test_data.odCopaRows[1:]
-
-	odIcbOrdHeader, err := handleODIcbOrdHeader(test_data.odIcbOrdRows[0], test_data.conf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	test_data.odIcbOrdHeader = &odIcbOrdHeader
 	test_data.odIcbOrdRows = test_data.odIcbOrdRows[1:]
+	fmt.Println("OK!")
 }
 
 func Test_splitIcbDb(t *testing.T) {
+	fmt.Print("Calculating ... ")
 	splitIcbDb(test_data)
 }
 
@@ -60,12 +59,13 @@ func Test_resolveIcbDbRelation(t *testing.T) {
 	resolveIcbDbRelation(test_data)
 }
 
-func Test_result(t *testing.T) {
-	for key, value := range test_data.icbDbRelation {
-		if value < 0 {
-			no := test_data.odCopaRows[key][test_data.odCopaHeader.soNoIdx]
-			log.Println(no, value)
-		}
-	}
+func Test_handleUnusedDb(t *testing.T) {
+	handleUnusedDb(test_data)
+	fmt.Println("OK!")
+}
 
+func Test_result(t *testing.T) {
+	fmt.Print("Outputing ... ")
+	output(test_data, TEST_FILE_PATH)
+	fmt.Println("OK!")
 }
