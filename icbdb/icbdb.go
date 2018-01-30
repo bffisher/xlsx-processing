@@ -75,7 +75,7 @@ func Exec(confFilePath string) error {
 
 	log.Print("Outputing... ")
 	output(data, "")
-	log.Println("OK1")
+	log.Println("OK!")
 	return nil
 }
 

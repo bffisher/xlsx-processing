@@ -28,11 +28,11 @@ func writeHeader(xlsx *excelize.File, conf *config_t) error {
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 1), conf.columns["OD_COPA_SO"])
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 14), "[DB]"+conf.columns["OD_COPA_SO"])
 	// OD_COPA_WBS	WBS Element
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 2), conf.columns["OD_COPA_WBS"])
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 15), "[DB]"+conf.columns["OD_COPA_WBS"])
+	// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 2), conf.columns["OD_COPA_WBS"])
+	// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 15), "[DB]"+conf.columns["OD_COPA_WBS"])
 	// OD_COPA_CUS	Customer
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 3), conf.columns["OD_COPA_CUS"])
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 16), "[DB]"+conf.columns["OD_COPA_CUS"])
+	// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 3), conf.columns["OD_COPA_CUS"])
+	// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 16), "[DB]"+conf.columns["OD_COPA_CUS"])
 	// OD_COPA_TP	Trad. partn.
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 4), conf.columns["OD_COPA_TP"])
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 17), "[DB]"+conf.columns["OD_COPA_TP"])
@@ -40,10 +40,10 @@ func writeHeader(xlsx *excelize.File, conf *config_t) error {
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 5), conf.columns["OD_COPA_EX"])
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 18), "[DB]"+conf.columns["OD_COPA_EX"])
 	// OD_COPA_PH	Product Hierarchy
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 6), conf.columns["OD_COPA_PH"])
+	// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 6), conf.columns["OD_COPA_PH"])
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 19), "[DB]"+conf.columns["OD_COPA_PH"])
 	// OD_COPA_PPC	Partner Profit Center:
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 7), conf.columns["OD_COPA_PPC"])
+	// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 7), conf.columns["OD_COPA_PPC"])
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 20), "[DB]"+conf.columns["OD_COPA_PPC"])
 	// OD_COPA_NO	New Order
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, 8), conf.columns["OD_COPA_NO"])
@@ -78,13 +78,19 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 		xlsx.SetCellStr(_OUTPUT_SHEET, dbPCAxis, dbPC)
 		// OD_COPA_SO	Sales order
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 1), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_SO"))
-		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 14), getDbValFromODCopa(data, icbdb.db, "OD_COPA_SO"))
+		
+		dbWBS:=getDbValFromODCopa(data, icbdb.db, "OD_COPA_WBS")
+		if dbWBS == ""{
+			xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 14), getDbValFromODCopa(data, icbdb.db, "OD_COPA_SO"))
+		}else{
+			xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 14),dbWBS[0:17])
+		}
 		// OD_COPA_WBS	WBS Element
-		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 2), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_WBS"))
-		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 15), getDbValFromODCopa(data, icbdb.db, "OD_COPA_WBS"))
+		// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 2), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_WBS"))
+		// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 15), getDbValFromODCopa(data, icbdb.db, "OD_COPA_WBS"))
 		// OD_COPA_CUS	Customer
-		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 3), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_CUS"))
-		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 16), getDbValFromODCopa(data, icbdb.db, "OD_COPA_CUS"))
+		// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 3), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_CUS"))
+		// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 16), getDbValFromODCopa(data, icbdb.db, "OD_COPA_CUS"))
 		// OD_COPA_TP	Trad. partn.
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 4), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_TP"))
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 17), getDbValFromODCopa(data, icbdb.db, "OD_COPA_TP"))
@@ -92,14 +98,17 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 5), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_EX"))
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 18), getDbValFromODCopa(data, icbdb.db, "OD_COPA_EX"))
 		// OD_COPA_PH	Product Hierarchy
-		ibcPHAxis := util.Axis(rowIdx, 6)
-		ibcPH := getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_PH")
-		xlsx.SetCellStr(_OUTPUT_SHEET, ibcPHAxis, ibcPH)
+		// ibcPHAxis := util.Axis(rowIdx, 6)
+		// ibcPH := getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_PH")
+		// xlsx.SetCellStr(_OUTPUT_SHEET, ibcPHAxis, ibcPH)
 		dbPHAxis := util.Axis(rowIdx, 19)
 		dbPH := getDbValFromODCopa(data, icbdb.db, "OD_COPA_PH")
+		if dbPH == ""{
+			dbPH = getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_PH")
+		}
 		xlsx.SetCellStr(_OUTPUT_SHEET, dbPHAxis, dbPH)
 		// OD_COPA_PPC	Partner Profit Center:
-		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 7), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_PPC"))
+		// xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 7), getIcbValFromODCopa(data, icbdb.idx, "OD_COPA_PPC"))
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, 20), getDbValFromODCopa(data, icbdb.db, "OD_COPA_PPC"))
 		// OD_COPA_NO	New Order
 		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, 8), getIcbFloatFromODCopa(data, icbdb.idx, "OD_COPA_NO"))
@@ -117,10 +126,10 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, 12), getIcbFloatFromODCopa(data, icbdb.idx, "OD_COPA_GM"))
 		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, 25), getDbFloatFromODCopa(data, icbdb.db, "OD_COPA_GM"))
 
-		if ok := checkPCPH(data, ibcPC, ibcPH); !ok {
-			xlsx.SetCellStyle(_OUTPUT_SHEET, ibcPCAxis, ibcPCAxis, warnCellStyle)
-			xlsx.SetCellStyle(_OUTPUT_SHEET, ibcPHAxis, ibcPHAxis, warnCellStyle)
-		}
+		// if ok := checkPCPH(data, ibcPC, ibcPH); !ok {
+		// 	xlsx.SetCellStyle(_OUTPUT_SHEET, ibcPCAxis, ibcPCAxis, warnCellStyle)
+		// 	xlsx.SetCellStyle(_OUTPUT_SHEET, ibcPHAxis, ibcPHAxis, warnCellStyle)
+		// }
 		if ok := checkPCPH(data, dbPC, dbPH); !ok {
 			xlsx.SetCellStyle(_OUTPUT_SHEET, dbPCAxis, dbPCAxis, warnCellStyle)
 			xlsx.SetCellStyle(_OUTPUT_SHEET, dbPHAxis, dbPHAxis, warnCellStyle)
