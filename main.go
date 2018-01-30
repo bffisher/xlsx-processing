@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"xlsx-processing/copa"
+	"xlsx-processing/icbdb"
 )
 
 const CONFIG_FILE_PATH = "_conf.xlsx"
@@ -17,6 +18,8 @@ func main() {
 	switch task {
 	case "copa":
 		execCopa()
+	case "icbdb":
+		execIcbdb()
 	default:
 		log.Printf("Can not identify the task named '%s'\n", task)
 	}
@@ -27,6 +30,17 @@ func execCopa() {
 
 	if err != nil {
 		log.Println("Ocur an error when handling 'copa' task.")
+		log.Fatalln(err)
+	}
+
+	log.Println("Completed successfully.")
+}
+
+func execIcbdb() {
+	err := icbdb.Exec(CONFIG_FILE_PATH)
+
+	if err != nil {
+		log.Println("Ocur an error when handling 'icbdb' task.")
 		log.Fatalln(err)
 	}
 
