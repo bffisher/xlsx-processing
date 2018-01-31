@@ -6,10 +6,12 @@ import (
 
 type config_t struct {
 	files, sheets, columns, products map[string]string
+	gisSheets                        [][2]string
 }
 
 func readConfig(filePath string) (*config_t, error) {
-	conf := config_t{make(map[string]string), make(map[string]string), make(map[string]string), make(map[string]string)}
+	conf := config_t{make(map[string]string), make(map[string]string), make(map[string]string),
+		make(map[string]string), make([][2]string, 0, 10)}
 
 	rows, err := util.ReadConfig(filePath)
 	if err != nil {
@@ -27,6 +29,8 @@ func readConfig(filePath string) (*config_t, error) {
 			_, key = util.SplitCodeName(key)
 			return key, value
 		})
+
+		conf.gisSheets = util.CopyRowToArray(conf.gisSheets, row, 12, 13)
 	}
 
 	return &conf, nil

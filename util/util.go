@@ -60,6 +60,13 @@ func CopyRowToMapWithFunc(dic map[string]string, row []string, keyIdx, valIdx in
 	}
 }
 
+func CopyRowToArray(array [][2]string, row []string, keyIdx, valIdx int) [][2]string {
+	if row[keyIdx] != "" {
+		array = append(array, [2]string{row[keyIdx], row[valIdx]})
+	}
+	return array
+}
+
 func ConvColNameToIdx(row []string, colNames map[string]string, colIdxs map[string]int, keyFilter func(key string) bool) {
 	for index, col := range row {
 		col := strings.TrimSpace(col)
@@ -72,10 +79,12 @@ func ConvColNameToIdx(row []string, colNames map[string]string, colIdxs map[stri
 	}
 }
 
-func CheckColNameIdx(colNames map[string]string, colIdxs map[string]int) error {
+func CheckColNameIdx(colNames map[string]string, colIdxs map[string]int, keyFilter func(key string) bool) error {
 	for key, name := range colNames {
-		if _, ok := colIdxs[key]; !ok {
-			return errors.New("Can not find '" + name + "' column")
+		if keyFilter == nil || keyFilter(key) {
+			if _, ok := colIdxs[key]; !ok {
+				return errors.New("Can not find '" + name + "' column")
+			}
 		}
 	}
 	return nil

@@ -15,7 +15,8 @@ var test_data *data_t
 
 func Test_readConfig(t *testing.T) {
 	test_data = &data_t{}
-	conf, err := readConfig(TEST_FILE_PATH + "_conf.xlsx")
+	test_data.path = "../test_files/icbdb/"
+	conf, err := readConfig(test_data.path + "_conf.xlsx")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +25,7 @@ func Test_readConfig(t *testing.T) {
 }
 func Test_OpenXlsx(t *testing.T) {
 	log.Print("Reading ... ")
-	xlsx, err := excelize.OpenFile(TEST_FILE_PATH + test_data.conf.files["OD"])
+	xlsx, err := excelize.OpenFile(test_data.path + test_data.conf.files["OD"])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,29 +35,27 @@ func Test_OpenXlsx(t *testing.T) {
 	if len(test_data.odCopaRows) < 2 {
 		t.Fatal(errors.New("Can not find 'COPA original data' sheet"))
 	}
-	test_data.odIcbOrdRows = xlsx.GetRows(test_data.conf.sheets["OD_ICB_ORD"])
-	if len(test_data.odIcbOrdRows) < 2 {
-		t.Fatal(errors.New("Can not find 'ICB_ORD' sheet"))
-	}
 }
 func Test_handleHeader(t *testing.T) {
-	odHeader, err := getODHeader(test_data.odCopaRows[0], test_data.odIcbOrdRows[0], test_data.conf)
+	odHeader, err := getODCopaHeader(test_data.odCopaRows[0], test_data.conf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	test_data.odHeader = odHeader
+	test_data.odCopaHeader = odHeader
 	test_data.odCopaRows = test_data.odCopaRows[1:]
-	test_data.odIcbOrdRows = test_data.odIcbOrdRows[1:]
 	log.Println("OK!")
 }
 
 func Test_splitIcbDb(t *testing.T) {
-	log.Print("Calculating ... ")
+	log.Print("Matching ... ")
 	splitIcbDb(test_data)
 }
 
 func Test_resolveIcbDbRelation(t *testing.T) {
-	resolveIcbDbRelation(test_data)
+	err := resolveIcbDbRelation(test_data)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func Test_handleUnusedDb(t *testing.T) {
@@ -66,6 +65,6 @@ func Test_handleUnusedDb(t *testing.T) {
 
 func Test_result(t *testing.T) {
 	log.Print("Outputing ... ")
-	output(test_data, TEST_FILE_PATH)
+	output(test_data)
 	log.Println("OK!")
 }

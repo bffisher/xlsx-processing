@@ -3,6 +3,7 @@ package icbdb
 import (
 	"errors"
 	"log"
+	"strconv"
 	"strings"
 	"xlsx-processing/util"
 
@@ -24,25 +25,30 @@ type icb_db_t struct {
 }
 
 type data_t struct {
-	conf                     *config_t
-	odXlsx                   *excelize.File
-	odCopaRows, odIcbOrdRows [][]string
-	odHeader                 map[string]int
-	icbDbList                []icb_db_t
-	dbList                   []db_t
+	path         string
+	conf         *config_t
+	odXlsx       *excelize.File
+	odCopaRows   [][]string
+	odCopaHeader map[string]int
+	icbDbList    []icb_db_t
+	dbList       []db_t
 }
 
-func Exec(confFilePath string) error {
+const _DB_IDX_EMPTY = -1
+const _DB_IDX_NIL = -9
+const _ICB_IDX_NIL = -9
+
+func Exec(confFile string) error {
 	data := &data_t{}
 
 	log.Print("Reading... ")
-	conf, err := readConfig(confFilePath)
+	conf, err := readConfig(data.path + confFile)
 	if err != nil {
 		return err
 	}
 	data.conf = conf
 
-	odXlsx, err := excelize.OpenFile(conf.files["OD"])
+	odXlsx, err := excelize.OpenFile(data.path + conf.files["OD"])
 	if err != nil {
 		return err
 	}
@@ -53,28 +59,25 @@ func Exec(confFilePath string) error {
 		return errors.New("Can not find 'COPA original data' sheet")
 	}
 
-	odIcbOrdRows := odXlsx.GetRows(conf.sheets["OD_ICB_ORD"])
-	if len(odIcbOrdRows) < 2 {
-		return errors.New("Can not find 'ICB_ORD' sheet")
-	}
-
-	odHeader, err := getODHeader(odCopaRows[0], odIcbOrdRows[0], conf)
+	odCopaHeader, err := getODCopaHeader(odCopaRows[0], conf)
 	if err != nil {
 		return err
 	}
-	data.odHeader = odHeader
+	data.odCopaHeader = odCopaHeader
 	data.odCopaRows = odCopaRows[1:]
-	data.odIcbOrdRows = odIcbOrdRows[1:]
 	log.Println("OK!")
 
-	log.Print("Calculating... ")
+	log.Print("Matching... ")
 	splitIcbDb(data)
-	resolveIcbDbRelation(data)
-	handleUnusedDb(data)
+	err = resolveIcbDbRelation(data)
+	if err != nil {
+		return err
+	}
+	appendUnmatchedDb(data)
 	log.Println("OK!")
 
 	log.Print("Outputing... ")
-	output(data, "")
+	output(data)
 	log.Println("OK!")
 	return nil
 }
@@ -84,9 +87,9 @@ func splitIcbDb(data *data_t) {
 	icbDbList := make([]icb_db_t, 0, len/3*2)
 	dbList := make([]db_t, 0, len/2)
 
-	wbsColIdx := data.odHeader["OD_COPA_WBS"]
-	soNoColIdx := data.odHeader["OD_COPA_SO"]
-	tradPartnColIdx := data.odHeader["OD_COPA_TP"]
+	wbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
+	soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
+	tradPartnColIdx := data.odCopaHeader["OD_COPA_TP"]
 	for index, row := range data.odCopaRows {
 		if wbs := row[wbsColIdx]; wbs != "" {
 			_, wbs = util.SplitCodeName(wbs)
@@ -99,7 +102,7 @@ func splitIcbDb(data *data_t) {
 		tradPartn, _ := util.SplitCodeName(row[tradPartnColIdx])
 		if soNo != "" && tradPartn == "004611" {
 			//ICB
-			icbDbList = append(icbDbList, icb_db_t{index, db_t{-1, 0}})
+			icbDbList = append(icbDbList, icb_db_t{index, db_t{_DB_IDX_NIL, 0}})
 		} else {
 			//DB
 			dbList = append(dbList, db_t{index, 0})
@@ -108,49 +111,131 @@ func splitIcbDb(data *data_t) {
 	data.icbDbList, data.dbList = icbDbList, dbList
 }
 
-func resolveIcbDbRelation(data *data_t) {
-	for icbIndex, icbDb := range data.icbDbList {
-		if dbIndex, ok := findDbByODIcbOrdInDbList(data, icbDb.idx); ok {
-			if dbIndex >= 0 {
-				data.dbList[dbIndex].cnt++
-				data.icbDbList[icbIndex].db = data.dbList[dbIndex]
-			} else {
-				data.icbDbList[icbIndex].db = db_t{-11, 0}
-			}
-		} else {
-			//TODO shoud find in other table
-		}
+func resolveIcbDbRelation(data *data_t) error {
+	isLeft, err := findDbInDbListByODIcbOrd(data)
+	if err != nil {
+		return err
 	}
+	if !isLeft {
+		return nil
+	}
+
+	isLeft, err = findDbInDblistByGis(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-//return: int: index of dblist; bool: whether it has found in OD_ICB_ORD
-func findDbByODIcbOrdInDbList(data *data_t, rowIdx int) (int, bool) {
-	soNoColIdx := data.odHeader["OD_COPA_SO"]
-	icbOrdSoNoColIdx := data.odHeader["OD_ICB_ORD_SN"]
-	icbOrdWbsColIdx := data.odHeader["OD_ICB_ORD_WBS"]
-	icbOrdDbSoNoColIdx := data.odHeader["OD_ICB_ORD_DB_SN"]
-
-	icbSoNo := strings.TrimSpace(data.odCopaRows[rowIdx][soNoColIdx])
-	index := -1
-	for _, odIcbOrdRow := range data.odIcbOrdRows {
-		if icbSoNo == strings.TrimSpace(odIcbOrdRow[icbOrdSoNoColIdx]) {
-			wbs := strings.TrimSpace(odIcbOrdRow[icbOrdWbsColIdx])
-			if wbs != "" {
-				index = matchODCopaWBS(data, wbs, rowIdx)
-			} else {
-				dbSoNo := strings.TrimSpace(odIcbOrdRow[icbOrdDbSoNoColIdx])
-				index = matcODCopaSoNo(data, dbSoNo, rowIdx)
-			}
-			return index, true
-		}
+func findDbInDbListByODIcbOrd(data *data_t) (bool, error) {
+	sheet := data.conf.sheets["OD_ICB_ORD"]
+	log.Println(sheet)
+	odIcbOrdRows := data.odXlsx.GetRows(data.conf.sheets["OD_ICB_ORD"])
+	if len(odIcbOrdRows) < 2 {
+		return false, errors.New("Can not find '" + sheet + "' sheet")
 	}
 
-	return index, false
+	icbDBHeader, err := getODIcbOrdHeader(odIcbOrdRows[0], data.conf)
+	if err != nil {
+		return false, err
+	}
+
+	soNoColIdx := icbDBHeader["OD_ICB_ORD_SN"]
+	wbsColIdx := icbDBHeader["OD_ICB_ORD_WBS"]
+	dbSoNoColIdx := icbDBHeader["OD_ICB_ORD_DB_SN"]
+	return findDbInDbList(data, odIcbOrdRows, soNoColIdx, wbsColIdx, dbSoNoColIdx), nil
+}
+
+func findDbInDblistByGis(data *data_t) (bool, error) {
+	isLeft := false
+	xlsx, err := excelize.OpenFile(data.path + data.conf.files["GIS"])
+	if err != nil {
+		return false, err
+	}
+	for _, item := range data.conf.gisSheets {
+		sheet, headerIdxStr := item[0], item[1]
+		log.Println(item[0])
+		headerIdx, err := strconv.Atoi(headerIdxStr)
+		if err != nil {
+			return false, err
+		}
+		rows := xlsx.GetRows(sheet)
+		if len(rows) <= headerIdx {
+			return false, errors.New("Can not find '" + sheet + "' sheet")
+		}
+		soNoColIdx, wbsColIdx, dbSoNoColIdx := -1, -1, -1
+		for index, name := range rows[headerIdx-1] {
+			if name == "" {
+				continue
+			}
+			name = strings.ToLower(name)
+
+			if soNoColIdx == -1 && strings.Contains(name, "operation") {
+				soNoColIdx = index
+			} else if wbsColIdx == -1 && strings.Contains(name, "ccm--wbs") {
+				wbsColIdx = index
+			} else if dbSoNoColIdx == -1 && strings.Contains(name, "segment") {
+				dbSoNoColIdx = index
+			}
+		}
+
+		if soNoColIdx == -1 {
+			return false, errors.New("Can not find Operation No column in '" + sheet + "' sheet")
+		}
+		if dbSoNoColIdx == -1 {
+			return false, errors.New("Can not find Segment No column in '" + sheet + "' sheet")
+		}
+
+		isLeft = findDbInDbList(data, rows[headerIdx:], soNoColIdx, wbsColIdx, dbSoNoColIdx)
+		if !isLeft {
+			break
+		}
+	}
+	return isLeft, nil
+}
+
+func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNoColIdx int) bool {
+	coapSoNoColIdx := data.odCopaHeader["OD_COPA_SO"]
+	count, isLeft := 0, false
+	for icbIndex, icbDb := range data.icbDbList {
+		if icbDb.db.idx != _DB_IDX_NIL {
+			continue
+		}
+		icbSoNo := strings.TrimSpace(data.odCopaRows[icbDb.idx][coapSoNoColIdx])
+		index := -1
+		for _, odIcbOrdRow := range rows {
+			if icbSoNo == strings.TrimSpace(odIcbOrdRow[soNoColIdx]) {
+				wbs := ""
+				if wbsColIdx >= 0 {
+					wbs = strings.TrimSpace(odIcbOrdRow[wbsColIdx])
+				}
+				if wbs != "" {
+					index = matchODCopaWBS(data, wbs, icbDb.idx)
+				} else {
+					dbSoNo := strings.TrimSpace(odIcbOrdRow[dbSoNoColIdx])
+					index = matcODCopaSoNo(data, dbSoNo, icbDb.idx)
+				}
+				if index >= 0 {
+					data.dbList[index].cnt++
+					data.icbDbList[icbIndex].db = data.dbList[index]
+				} else {
+					data.icbDbList[icbIndex].db = db_t{_DB_IDX_EMPTY, 0}
+				}
+				count++
+				break
+			}
+		}
+		if !isLeft && data.icbDbList[icbIndex].db.idx == _DB_IDX_NIL {
+			isLeft = true
+		}
+	}
+	log.Println("Found:", count)
+	return isLeft
 }
 
 func matchODCopaWBS(data *data_t, wbs string, rowIdx int) int {
-	wbsColIdx := data.odHeader["OD_COPA_WBS"]
-	productHierarchyColIdx := data.odHeader["OD_COPA_PH"]
+	wbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
+	productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
 
 	for index, db := range data.dbList {
 		dbWbs := strings.TrimSpace(data.odCopaRows[db.idx][wbsColIdx])
@@ -166,8 +251,8 @@ func matchODCopaWBS(data *data_t, wbs string, rowIdx int) int {
 }
 
 func matcODCopaSoNo(data *data_t, dbSoNo string, rowIdx int) int {
-	soNoColIdx := data.odHeader["OD_COPA_SO"]
-	productHierarchyColIdx := data.odHeader["OD_COPA_PH"]
+	soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
+	productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
 
 	for index, db := range data.dbList {
 		if dbSoNo == strings.TrimSpace(data.odCopaRows[db.idx][soNoColIdx]) {
@@ -188,11 +273,11 @@ func matchProductHierarchy(data *data_t, val1, val2 string) bool {
 	return data.conf.products[name1] == data.conf.products[name2]
 }
 
-func handleUnusedDb(data *data_t) {
+func appendUnmatchedDb(data *data_t) {
 	for _, db := range data.dbList {
 		if db.cnt == 0 {
 			// have not a corresponding icb
-			data.icbDbList = append(data.icbDbList, icb_db_t{-1, db})
+			data.icbDbList = append(data.icbDbList, icb_db_t{_ICB_IDX_NIL, db})
 		}
 	}
 }
