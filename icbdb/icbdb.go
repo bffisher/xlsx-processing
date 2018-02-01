@@ -10,18 +10,19 @@ import (
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
-//db is some rows of OD_COPA rows
-//idx: db index of odCopaRows, cnt: found count by icb
-type db_t struct {
-	idx, cnt int
+//icb is some rows of OD_COPA rows
+//idx: index of odCopaRows
+//dbIdx: index of odCopaRows, that belong to db
+type icb_t struct {
+	idx, dbIdx int
 }
 
-//icb is some rows of OD_COPA rows, save icb and relation of icb and db
-//idx: icb index of odCopaRows
-//db: corresponding to icb
-type icb_db_t struct {
-	idx int
-	db  db_t
+//db is some rows of OD_COPA rows
+//idx: index of odCopaRows
+//icbIdxs: indexs of odCopaRows, that belong to icb
+type db_t struct {
+	idx     int
+	icbIdxs []int
 }
 
 type data_t struct {
@@ -30,13 +31,12 @@ type data_t struct {
 	odXlsx       *excelize.File
 	odCopaRows   [][]string
 	odCopaHeader map[string]int
-	icbDbList    []icb_db_t
+	icbList      []icb_t
 	dbList       []db_t
 }
 
-const _DB_IDX_EMPTY = -1
-const _DB_IDX_NIL = -9
-const _ICB_IDX_NIL = -9
+const _DB_IDX_NO_RELATION = -1
+const _DB_IDX_NO_DATA = -2
 
 func Exec(confFile string) error {
 	data := &data_t{}
@@ -73,7 +73,7 @@ func Exec(confFile string) error {
 	if err != nil {
 		return err
 	}
-	appendUnmatchedDb(data)
+	// appendUnmatchedDb(data)
 	log.Println("OK!")
 
 	log.Print("Outputing... ")
@@ -84,8 +84,8 @@ func Exec(confFile string) error {
 
 func splitIcbDb(data *data_t) {
 	len := len(data.odCopaRows)
-	icbDbList := make([]icb_db_t, 0, len/3*2)
-	dbList := make([]db_t, 0, len/2)
+	icbList := make([]icb_t, 0, len/2)
+	dbList := make([]db_t, 0, len/3*2)
 
 	wbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
 	soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
@@ -102,13 +102,13 @@ func splitIcbDb(data *data_t) {
 		tradPartn, _ := util.SplitCodeName(row[tradPartnColIdx])
 		if soNo != "" && tradPartn == "004611" {
 			//ICB
-			icbDbList = append(icbDbList, icb_db_t{index, db_t{_DB_IDX_NIL, 0}})
+			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION})
 		} else {
 			//DB
-			dbList = append(dbList, db_t{index, 0})
+			dbList = append(dbList, db_t{index, make([]int, 0)})
 		}
 	}
-	data.icbDbList, data.dbList = icbDbList, dbList
+	data.icbList, data.dbList = icbList, dbList
 }
 
 func resolveIcbDbRelation(data *data_t) error {
@@ -197,12 +197,12 @@ func findDbInDblistByGis(data *data_t) (bool, error) {
 func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNoColIdx int) bool {
 	coapSoNoColIdx := data.odCopaHeader["OD_COPA_SO"]
 	count, isLeft := 0, false
-	for icbIndex, icbDb := range data.icbDbList {
-		if icbDb.db.idx != _DB_IDX_NIL {
+	for index, icb := range data.icbList {
+		if icb.dbIdx != _DB_IDX_NO_RELATION {
 			continue
 		}
-		icbSoNo := strings.TrimSpace(data.odCopaRows[icbDb.idx][coapSoNoColIdx])
-		index := -1
+		icbSoNo := strings.TrimSpace(data.odCopaRows[icb.idx][coapSoNoColIdx])
+		idxInDbList := -1
 		for _, odIcbOrdRow := range rows {
 			if icbSoNo == strings.TrimSpace(odIcbOrdRow[soNoColIdx]) {
 				wbs := ""
@@ -210,22 +210,22 @@ func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNo
 					wbs = strings.TrimSpace(odIcbOrdRow[wbsColIdx])
 				}
 				if wbs != "" {
-					index = matchODCopaWBS(data, wbs, icbDb.idx)
+					idxInDbList = matchODCopaWBS(data, wbs, icb.idx)
 				} else {
 					dbSoNo := strings.TrimSpace(odIcbOrdRow[dbSoNoColIdx])
-					index = matcODCopaSoNo(data, dbSoNo, icbDb.idx)
+					idxInDbList = matcODCopaSoNo(data, dbSoNo, icb.idx)
 				}
-				if index >= 0 {
-					data.dbList[index].cnt++
-					data.icbDbList[icbIndex].db = data.dbList[index]
+				if idxInDbList >= 0 {
+					data.dbList[idxInDbList].icbIdxs = append(data.dbList[idxInDbList].icbIdxs, icb.idx)
+					data.icbList[index].dbIdx = data.dbList[idxInDbList].idx
 				} else {
-					data.icbDbList[icbIndex].db = db_t{_DB_IDX_EMPTY, 0}
+					data.icbList[index].dbIdx = _DB_IDX_NO_DATA
 				}
 				count++
 				break
 			}
 		}
-		if !isLeft && data.icbDbList[icbIndex].db.idx == _DB_IDX_NIL {
+		if !isLeft && data.icbList[index].dbIdx == _DB_IDX_NO_RELATION {
 			isLeft = true
 		}
 	}
@@ -271,13 +271,4 @@ func matchProductHierarchy(data *data_t, val1, val2 string) bool {
 	_, name2 := util.SplitCodeName(val2)
 
 	return data.conf.products[name1] == data.conf.products[name2]
-}
-
-func appendUnmatchedDb(data *data_t) {
-	for _, db := range data.dbList {
-		if db.cnt == 0 {
-			// have not a corresponding icb
-			data.icbDbList = append(data.icbDbList, icb_db_t{_ICB_IDX_NIL, db})
-		}
-	}
 }

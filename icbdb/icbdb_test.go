@@ -56,12 +56,13 @@ func Test_resolveIcbDbRelation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-}
-
-func Test_handleUnusedDb(t *testing.T) {
-	handleUnusedDb(test_data)
 	log.Println("OK!")
 }
+
+// func Test_handleUnusedDb(t *testing.T) {
+// 	handleUnusedDb(test_data)
+// 	log.Println("OK!")
+// }
 
 func Test_result(t *testing.T) {
 	log.Print("Outputing ... ")
