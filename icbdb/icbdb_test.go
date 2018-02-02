@@ -66,6 +66,6 @@ func Test_resolveIcbDbRelation(t *testing.T) {
 
 func Test_result(t *testing.T) {
 	log.Print("Outputing ... ")
-	output(test_data)
+	// output(test_data)
 	log.Println("OK!")
 }

@@ -15,6 +15,7 @@ import (
 //dbIdx: index of odCopaRows, that belong to db
 type icb_t struct {
 	idx, dbIdx int
+	wbs, soNo  string
 }
 
 //db is some rows of OD_COPA rows
@@ -73,7 +74,7 @@ func Exec(confFile string) error {
 	if err != nil {
 		return err
 	}
-	// appendUnmatchedDb(data)
+
 	log.Println("OK!")
 
 	log.Print("Outputing... ")
@@ -102,7 +103,7 @@ func splitIcbDb(data *data_t) {
 		tradPartn, _ := util.SplitCodeName(row[tradPartnColIdx])
 		if soNo != "" && tradPartn == "004611" {
 			//ICB
-			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION})
+			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION, "", ""})
 		} else {
 			//DB
 			dbList = append(dbList, db_t{index, make([]int, 0)})
@@ -196,23 +197,23 @@ func findDbInDblistByGis(data *data_t) (bool, error) {
 
 func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNoColIdx int) bool {
 	coapSoNoColIdx := data.odCopaHeader["OD_COPA_SO"]
-	count, isLeft := 0, false
+	rcount, dcount, isLeft := 0, 0, false
 	for index, icb := range data.icbList {
 		if icb.dbIdx != _DB_IDX_NO_RELATION {
 			continue
 		}
 		icbSoNo := strings.TrimSpace(data.odCopaRows[icb.idx][coapSoNoColIdx])
 		idxInDbList := -1
-		for _, odIcbOrdRow := range rows {
-			if icbSoNo == strings.TrimSpace(odIcbOrdRow[soNoColIdx]) {
-				wbs := ""
+		for _, row := range rows {
+			if icbSoNo == strings.TrimSpace(row[soNoColIdx]) {
+				wbs, dbSoNo := "", ""
 				if wbsColIdx >= 0 {
-					wbs = strings.TrimSpace(odIcbOrdRow[wbsColIdx])
+					wbs = strings.TrimSpace(row[wbsColIdx])
 				}
 				if wbs != "" {
 					idxInDbList = matchODCopaWBS(data, wbs, icb.idx)
 				} else {
-					dbSoNo := strings.TrimSpace(odIcbOrdRow[dbSoNoColIdx])
+					dbSoNo = strings.TrimSpace(row[dbSoNoColIdx])
 					idxInDbList = matcODCopaSoNo(data, dbSoNo, icb.idx)
 				}
 				if idxInDbList >= 0 {
@@ -220,8 +221,13 @@ func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNo
 					data.icbList[index].dbIdx = data.dbList[idxInDbList].idx
 				} else {
 					data.icbList[index].dbIdx = _DB_IDX_NO_DATA
+					data.icbList[index].wbs = wbs
+					data.icbList[index].soNo = dbSoNo
 				}
-				count++
+				if idxInDbList >= 0 {
+					dcount++
+				}
+				rcount++
 				break
 			}
 		}
@@ -229,7 +235,7 @@ func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNo
 			isLeft = true
 		}
 	}
-	log.Println("Found:", count)
+	log.Printf("Found:%d(%d)", rcount, dcount)
 	return isLeft
 }
 

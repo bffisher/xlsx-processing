@@ -98,6 +98,10 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 	for _, icb := range data.icbList {
 		if icb.dbIdx < 0 {
 			writeIcb(xlsx, data, rowIdx, icb.idx)
+
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, lastOutputCol+1), icb.dbIdx)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, lastOutputCol+2), icb.wbs)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, lastOutputCol+3), icb.soNo)
 			rowIdx++
 		}
 	}
