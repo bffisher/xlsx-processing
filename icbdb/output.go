@@ -14,9 +14,10 @@ const _OUTPUT_SHEET = "Sheet1"
 type outputCols_t struct {
 	DB_PC, DB_SO, DB_TP, DB_EX, DB_PH, DB_PPC, DB_NO, DB_OOH, DB_NS, DB_COS, DB_GM int
 	PC, SO, TP, EX, NO, OOH, NS, COS, GM                                           int
+	NO_ICB int
 }
 
-var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}
+var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 var lastOutputCol int = outputCols.GM
 
 func output(data *data_t) error {
@@ -96,17 +97,30 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 	}
 
 	for _, icb := range data.icbList {
-		if icb.dbIdx < 0 {
-			writeIcb(xlsx, data, rowIdx, icb.idx)
+		writeIcb(xlsx, data, rowIdx, icb.idx)
+		if icb.dbIdx == _DB_IDX_NO_DATA {
+			// Sales order
+			if icb.dbWbs != ""{
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbWbs[0:17])
+			}else{
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbSoNo)
+			}
+			// New Order
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NO), 0)
+			// Orders on hand
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_OOH), 0)
+			// Net Sales
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NS), 0)
+			// COS
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_COS), 0)
+			// Gr. Margin
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), 0)
 
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, lastOutputCol+1), icb.dbIdx)
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, lastOutputCol+2), icb.wbs)
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, lastOutputCol+3), icb.soNo)
 			rowIdx++
 		}
 	}
 
-	numStyle, _ := xlsx.NewStyle(`{"custom_number_format": "#,##0.00_);[red](#,##0.00)"}`)
+	numStyle, _ := xlsx.NewStyle(`{"custom_number_format": "#,##0_);[red](#,##0)"}`)
 	xlsx.SetCellStyle(_OUTPUT_SHEET, util.Axis(1, outputCols.NO), util.Axis(rowIdx, outputCols.GM), numStyle)
 	xlsx.SetCellStyle(_OUTPUT_SHEET, util.Axis(1, outputCols.DB_NO), util.Axis(rowIdx, outputCols.DB_GM), numStyle)
 
@@ -128,7 +142,8 @@ func writeDb(xlsx *excelize.File, data *data_t, rowIdx int, db *db_t, warnCellSt
 	}
 	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_SO)
 	// Trad. partn.
-	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_TP), getValFromODCopa(data, db.idx, "OD_COPA_TP"))
+	dbTR := getValFromODCopa(data, db.idx, "OD_COPA_TP")
+	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_TP), dbTR)
 	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_TP)
 	// Export
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_EX), getValFromODCopa(data, db.idx, "OD_COPA_EX"))
@@ -163,6 +178,14 @@ func writeDb(xlsx *excelize.File, data *data_t, rowIdx int, db *db_t, warnCellSt
 	if ok := checkPCPH(data, dbPC, dbPH); !ok {
 		xlsx.SetCellStyle(_OUTPUT_SHEET, dbPCAxis, dbPCAxis, warnCellStyle)
 		xlsx.SetCellStyle(_OUTPUT_SHEET, dbPHAxis, dbPHAxis, warnCellStyle)
+	}
+
+	if icbLen == 0{
+		if pc,_ := util.SplitCodeName(dbPC); pc == _PC_P8251 || pc == _PC_P8211{
+			if tr,_ := util.SplitCodeName(dbTR); tr == _TR_4611{
+				xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.NO_ICB), "NO ICB")
+			}
+		} 
 	}
 }
 

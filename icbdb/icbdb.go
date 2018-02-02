@@ -15,7 +15,7 @@ import (
 //dbIdx: index of odCopaRows, that belong to db
 type icb_t struct {
 	idx, dbIdx int
-	wbs, soNo  string
+	dbWbs, dbSoNo  string
 }
 
 //db is some rows of OD_COPA rows
@@ -35,6 +35,10 @@ type data_t struct {
 	icbList      []icb_t
 	dbList       []db_t
 }
+
+const _TR_4611 = "004611"
+const _PC_P8251 = "P8251"
+const _PC_P8211 = "P8211"
 
 const _DB_IDX_NO_RELATION = -1
 const _DB_IDX_NO_DATA = -2
@@ -93,7 +97,6 @@ func splitIcbDb(data *data_t) {
 	tradPartnColIdx := data.odCopaHeader["OD_COPA_TP"]
 	for index, row := range data.odCopaRows {
 		if wbs := row[wbsColIdx]; wbs != "" {
-			_, wbs = util.SplitCodeName(wbs)
 			if strings.Contains(strings.ToUpper(wbs), "POC") {
 				continue
 			}
@@ -101,7 +104,7 @@ func splitIcbDb(data *data_t) {
 
 		soNo := row[soNoColIdx]
 		tradPartn, _ := util.SplitCodeName(row[tradPartnColIdx])
-		if soNo != "" && tradPartn == "004611" {
+		if soNo != "" && tradPartn == _TR_4611 {
 			//ICB
 			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION, "", ""})
 		} else {
@@ -121,7 +124,12 @@ func resolveIcbDbRelation(data *data_t) error {
 		return nil
 	}
 
-	isLeft, err = findDbInDblistByGis(data)
+	isLeft, err =  findDbInDblistByOther(data, "GIS", data.conf.gisSheets)
+	if err != nil {
+		return err
+	}
+
+	isLeft, err = findDbInDblistByOther(data, "MC", data.conf.mcSheets)
 	if err != nil {
 		return err
 	}
@@ -147,15 +155,15 @@ func findDbInDbListByODIcbOrd(data *data_t) (bool, error) {
 	return findDbInDbList(data, odIcbOrdRows, soNoColIdx, wbsColIdx, dbSoNoColIdx), nil
 }
 
-func findDbInDblistByGis(data *data_t) (bool, error) {
+func findDbInDblistByOther(data *data_t, fileId string, sheets [][2]string) (bool, error) {
 	isLeft := false
-	xlsx, err := excelize.OpenFile(data.path + data.conf.files["GIS"])
+	xlsx, err := excelize.OpenFile(data.path + data.conf.files[fileId])
 	if err != nil {
 		return false, err
 	}
-	for _, item := range data.conf.gisSheets {
+	for _, item := range sheets {
 		sheet, headerIdxStr := item[0], item[1]
-		log.Println(item[0])
+		log.Printf("[%s] %s", fileId, item[0])
 		headerIdx, err := strconv.Atoi(headerIdxStr)
 		if err != nil {
 			return false, err
@@ -206,23 +214,26 @@ func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNo
 		idxInDbList := -1
 		for _, row := range rows {
 			if icbSoNo == strings.TrimSpace(row[soNoColIdx]) {
-				wbs, dbSoNo := "", ""
+				dbWbs, dbSoNo := "", ""
 				if wbsColIdx >= 0 {
-					wbs = strings.TrimSpace(row[wbsColIdx])
+					dbWbs = strings.TrimSpace(row[wbsColIdx])
 				}
-				if wbs != "" {
-					idxInDbList = matchODCopaWBS(data, wbs, icb.idx)
+				if dbWbs != "" {
+					idxInDbList = matchODCopaWBS(data, dbWbs, icb.idx)
 				} else {
-					dbSoNo = strings.TrimSpace(row[dbSoNoColIdx])
-					idxInDbList = matcODCopaSoNo(data, dbSoNo, icb.idx)
+					if dbSoNo = strings.TrimSpace(row[dbSoNoColIdx]); dbSoNo != ""{
+						idxInDbList = matcODCopaSoNo(data, dbSoNo, icb.idx)
+					}else{
+						continue
+					}
 				}
 				if idxInDbList >= 0 {
 					data.dbList[idxInDbList].icbIdxs = append(data.dbList[idxInDbList].icbIdxs, icb.idx)
 					data.icbList[index].dbIdx = data.dbList[idxInDbList].idx
 				} else {
 					data.icbList[index].dbIdx = _DB_IDX_NO_DATA
-					data.icbList[index].wbs = wbs
-					data.icbList[index].soNo = dbSoNo
+					data.icbList[index].dbWbs = dbWbs
+					data.icbList[index].dbSoNo = dbSoNo
 				}
 				if idxInDbList >= 0 {
 					dcount++
