@@ -14,10 +14,11 @@ const _OUTPUT_SHEET = "Sheet1"
 type outputCols_t struct {
 	DB_PC, DB_SO, DB_TP, DB_EX, DB_PH, DB_PPC, DB_NO, DB_OOH, DB_NS, DB_COS, DB_GM int
 	PC, SO, TP, EX, NO, OOH, NS, COS, GM                                           int
-	NO_ICB int
+	NO_ICB ,PRODUCT int
 }
 
-var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,	21}
 var lastOutputCol int = outputCols.GM
 
 func output(data *data_t) error {
@@ -92,13 +93,15 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 		}
 
 		if len(db.icbIdxs) == 0 {
+			//Product
+			writeProduct(xlsx, data, rowIdx, db.idx)
 			rowIdx++
 		}
 	}
 
 	for _, icb := range data.icbList {
-		writeIcb(xlsx, data, rowIdx, icb.idx)
 		if icb.dbIdx == _DB_IDX_NO_DATA {
+			writeIcb(xlsx, data, rowIdx, icb.idx)
 			// Sales order
 			if icb.dbWbs != ""{
 				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbWbs[0:17])
@@ -116,6 +119,9 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 			// Gr. Margin
 			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), 0)
 
+			rowIdx++
+		}else if icb.dbIdx == _DB_IDX_NO_RELATION{
+			writeIcb(xlsx, data, rowIdx, icb.idx)
 			rowIdx++
 		}
 	}
@@ -182,7 +188,7 @@ func writeDb(xlsx *excelize.File, data *data_t, rowIdx int, db *db_t, warnCellSt
 
 	if icbLen == 0{
 		if pc,_ := util.SplitCodeName(dbPC); pc == _PC_P8251 || pc == _PC_P8211{
-			if tr,_ := util.SplitCodeName(dbTR); tr == _TR_4611{
+			if tr,_ := util.SplitCodeName(dbTR); tr != _TR_4611{
 				xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.NO_ICB), "NO ICB")
 			}
 		} 
@@ -208,6 +214,15 @@ func writeIcb(xlsx *excelize.File, data *data_t, rowIdx, idx int) {
 	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.COS), getFloatFromODCopa(data, idx, "OD_COPA_COS"))
 	// Gr. Margin
 	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.GM), getFloatFromODCopa(data, idx, "OD_COPA_GM"))
+	//Product
+	writeProduct(xlsx, data, rowIdx, idx)
+	
+}
+
+func writeProduct(xlsx *excelize.File, data *data_t, rowIdx, idx int){
+	//Product
+	_,productHierarchy := util.SplitCodeName(getValFromODCopa(data, idx, "OD_COPA_PH"))
+	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PRODUCT), productHierarchy)
 }
 
 func getValFromODCopa(data *data_t, row int, colKey string) string {

@@ -93,7 +93,7 @@ func splitIcbDb(data *data_t) {
 	dbList := make([]db_t, 0, len/3*2)
 
 	wbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
-	soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
+	// soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
 	tradPartnColIdx := data.odCopaHeader["OD_COPA_TP"]
 	for index, row := range data.odCopaRows {
 		if wbs := row[wbsColIdx]; wbs != "" {
@@ -102,9 +102,9 @@ func splitIcbDb(data *data_t) {
 			}
 		}
 
-		soNo := row[soNoColIdx]
+		// soNo := row[soNoColIdx]
 		tradPartn, _ := util.SplitCodeName(row[tradPartnColIdx])
-		if soNo != "" && tradPartn == _TR_4611 {
+		if /*soNo != "" &&*/ tradPartn == _TR_4611 {
 			//ICB
 			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION, "", ""})
 		} else {
@@ -252,16 +252,16 @@ func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNo
 
 func matchODCopaWBS(data *data_t, wbs string, rowIdx int) int {
 	wbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
-	productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
+	// productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
 
 	for index, db := range data.dbList {
 		dbWbs := strings.TrimSpace(data.odCopaRows[db.idx][wbsColIdx])
 		if dbWbs != "" && wbs[0:17] == dbWbs[0:17] {
-			icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
-			dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
-			if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
+			// icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
+			// dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
+			// if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
 				return index
-			}
+			// }
 		}
 	}
 	return -1
@@ -269,23 +269,23 @@ func matchODCopaWBS(data *data_t, wbs string, rowIdx int) int {
 
 func matcODCopaSoNo(data *data_t, dbSoNo string, rowIdx int) int {
 	soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
-	productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
+	// productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
 
 	for index, db := range data.dbList {
 		if dbSoNo == strings.TrimSpace(data.odCopaRows[db.idx][soNoColIdx]) {
-			icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
-			dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
-			if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
+			// icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
+			// dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
+			// if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
 				return index
-			}
+			// }
 		}
 	}
 	return -1
 }
 
-func matchProductHierarchy(data *data_t, val1, val2 string) bool {
-	_, name1 := util.SplitCodeName(val1)
-	_, name2 := util.SplitCodeName(val2)
+// func matchProductHierarchy(data *data_t, val1, val2 string) bool {
+// 	_, name1 := util.SplitCodeName(val1)
+// 	_, name2 := util.SplitCodeName(val2)
 
-	return data.conf.products[name1] == data.conf.products[name2]
-}
+// 	return data.conf.products[name1] == data.conf.products[name2]
+// }
