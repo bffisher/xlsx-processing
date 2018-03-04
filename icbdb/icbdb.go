@@ -16,6 +16,7 @@ import (
 type icb_t struct {
 	idx, dbIdx int
 	dbWbs, dbSoNo  string
+	province, classfication string
 }
 
 //db is some rows of OD_COPA rows
@@ -24,16 +25,23 @@ type icb_t struct {
 type db_t struct {
 	idx     int
 	icbIdxs []int
+	province, classfication string
 }
 
 type data_t struct {
 	path         string
 	conf         *config_t
-	odXlsx       *excelize.File
+	odXlsx, gisXlsx, mcXlsx       *excelize.File
 	odCopaRows   [][]string
 	odCopaHeader map[string]int
 	icbList      []icb_t
 	dbList       []db_t
+}
+
+type other_sheet_data_t struct{
+	rows [][]string
+	headerIdx int
+	soNoColIdx, wbsColIdx, dbSoNoColIdx, provinceColIdx, partnerColIdx, classficationColIdx int
 }
 
 const _TR_4611 = "004611"
@@ -57,7 +65,17 @@ func Exec(confFile string) error {
 	if err != nil {
 		return err
 	}
+	gisXlsx, err := excelize.OpenFile(data.path + conf.files["GIS"])
+	if err != nil {
+		return err
+	}
+	mcXlsx, err := excelize.OpenFile(data.path + conf.files["MC"])
+	if err != nil {
+		return err
+	}
 	data.odXlsx = odXlsx
+	data.gisXlsx = gisXlsx
+	data.mcXlsx = mcXlsx
 
 	odCopaRows := odXlsx.GetRows(conf.sheets["OD_COPA"])
 	if len(odCopaRows) < 2 {
@@ -78,6 +96,9 @@ func Exec(confFile string) error {
 	if err != nil {
 		return err
 	}
+
+	log.Print("Finding province...")
+	findProvince(data)
 
 	log.Println("OK!")
 
@@ -106,10 +127,10 @@ func splitIcbDb(data *data_t) {
 		tradPartn, _ := util.SplitCodeName(row[tradPartnColIdx])
 		if /*soNo != "" &&*/ tradPartn == _TR_4611 {
 			//ICB
-			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION, "", ""})
+			icbList = append(icbList, icb_t{index, _DB_IDX_NO_RELATION, "", "", "", ""})
 		} else {
 			//DB
-			dbList = append(dbList, db_t{index, make([]int, 0)})
+			dbList = append(dbList, db_t{index, make([]int, 0), "", ""})
 		}
 	}
 	data.icbList, data.dbList = icbList, dbList
@@ -124,12 +145,12 @@ func resolveIcbDbRelation(data *data_t) error {
 		return nil
 	}
 
-	isLeft, err =  findDbInDblistByOther(data, "GIS", data.conf.gisSheets)
+	isLeft, err =  findDbInDblistByOther(data, data.gisXlsx, data.conf.gisSheets)
 	if err != nil {
 		return err
 	}
 
-	isLeft, err = findDbInDblistByOther(data, "MC", data.conf.mcSheets)
+	isLeft, err = findDbInDblistByOther(data, data.mcXlsx, data.conf.mcSheets)
 	if err != nil {
 		return err
 	}
@@ -155,52 +176,73 @@ func findDbInDbListByODIcbOrd(data *data_t) (bool, error) {
 	return findDbInDbList(data, odIcbOrdRows, soNoColIdx, wbsColIdx, dbSoNoColIdx), nil
 }
 
-func findDbInDblistByOther(data *data_t, fileId string, sheets [][2]string) (bool, error) {
+func findDbInDblistByOther(data *data_t, xlsx *excelize.File, sheets [][3]string) (bool, error) {
 	isLeft := false
-	xlsx, err := excelize.OpenFile(data.path + data.conf.files[fileId])
-	if err != nil {
-		return false, err
-	}
+	
 	for _, item := range sheets {
-		sheet, headerIdxStr := item[0], item[1]
-		log.Printf("[%s] %s", fileId, item[0])
-		headerIdx, err := strconv.Atoi(headerIdxStr)
-		if err != nil {
+		sheetData,err:= getOtherSheetData(data, xlsx, item)
+		if err!=nil{
 			return false, err
 		}
-		rows := xlsx.GetRows(sheet)
-		if len(rows) <= headerIdx {
-			return false, errors.New("Can not find '" + sheet + "' sheet")
-		}
-		soNoColIdx, wbsColIdx, dbSoNoColIdx := -1, -1, -1
-		for index, name := range rows[headerIdx-1] {
-			if name == "" {
-				continue
-			}
-			name = strings.ToLower(name)
 
-			if soNoColIdx == -1 && strings.Contains(name, "operation") {
-				soNoColIdx = index
-			} else if wbsColIdx == -1 && strings.Contains(name, "ccm--wbs") {
-				wbsColIdx = index
-			} else if dbSoNoColIdx == -1 && strings.Contains(name, "segment") {
-				dbSoNoColIdx = index
-			}
-		}
-
-		if soNoColIdx == -1 {
-			return false, errors.New("Can not find Operation No column in '" + sheet + "' sheet")
-		}
-		if dbSoNoColIdx == -1 {
-			return false, errors.New("Can not find Segment No column in '" + sheet + "' sheet")
-		}
-
-		isLeft = findDbInDbList(data, rows[headerIdx:], soNoColIdx, wbsColIdx, dbSoNoColIdx)
+		isLeft = findDbInDbList(data, sheetData.rows[sheetData.headerIdx:], sheetData.soNoColIdx, sheetData.wbsColIdx, sheetData.dbSoNoColIdx)
 		if !isLeft {
 			break
 		}
 	}
 	return isLeft, nil
+}
+
+func getOtherSheetData(data *data_t, xlsx *excelize.File, sheetInfo [3]string) (other_sheet_data_t,error){
+	result := other_sheet_data_t{};
+	sheet, headerIdxStr := sheetInfo[0], sheetInfo[1]
+	log.Printf("[%s] %s", xlsx.Path, sheet)
+	headerIdx, err := strconv.Atoi(headerIdxStr)
+	if err != nil {
+		return result, err;
+	}
+	rows := xlsx.GetRows(sheet)
+	if len(rows) <= headerIdx {
+		return result, errors.New("Can not find '" + sheet + "' sheet")
+	}
+	soNoColIdx, wbsColIdx, dbSoNoColIdx, provinceColIdx, partnerColIdx, classficationColIdx := -1, -1, -1, -1,-1,-1
+	for index, name := range rows[headerIdx-1] {
+		if name == "" {
+			continue
+		}
+		name = strings.ToLower(name)
+
+		if soNoColIdx == -1 && strings.Contains(name, "operation") {
+			soNoColIdx = index
+		} else if wbsColIdx == -1 && strings.Contains(name, "ccm--wbs") {
+			wbsColIdx = index
+		} else if dbSoNoColIdx == -1 && strings.Contains(name, "segment") {
+			dbSoNoColIdx = index
+		}else if provinceColIdx == -1 && strings.Contains(name, "province"){
+			provinceColIdx = index
+		}else if partnerColIdx == -1 && strings.Contains(name, "partner"){
+			partnerColIdx = index
+		}else if classficationColIdx == -1 && strings.Contains(name, "Classfication"){
+			classficationColIdx = index
+		}
+	}
+
+	if soNoColIdx == -1 {
+		return result, errors.New("Can not find Operation No column in '" + sheet + "' sheet")
+	}
+	if dbSoNoColIdx == -1 {
+		return result, errors.New("Can not find Segment No column in '" + sheet + "' sheet")
+	}
+
+	result.rows = rows
+	result.headerIdx = headerIdx
+	result.soNoColIdx = soNoColIdx
+	result.wbsColIdx = wbsColIdx
+	result.dbSoNoColIdx = dbSoNoColIdx
+	result.provinceColIdx = provinceColIdx
+	result.partnerColIdx = partnerColIdx
+	result.classficationColIdx = classficationColIdx
+	return result, nil
 }
 
 func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNoColIdx int) bool {
@@ -289,3 +331,101 @@ func matcODCopaSoNo(data *data_t, dbSoNo string, rowIdx int) int {
 
 // 	return data.conf.products[name1] == data.conf.products[name2]
 // }
+func findProvince(data *data_t)error{
+	for _,sheetInfo:= range data.conf.gisSheets{
+		
+		sheetData,err:= getOtherSheetData(data, data.gisXlsx, sheetInfo)
+		if err != nil{
+			return err;
+		}
+		rows := sheetData.rows[sheetData.headerIdx:]
+		for _, db:= range data.dbList{
+			if sheetInfo[2] == "Y" && db.province == ""{
+				db.province = findColValInOterSheetByDb(data, &db, rows, &sheetData, sheetData.provinceColIdx)
+			}
+
+			if db.classfication != ""{
+				continue;
+			}
+
+			db.classfication = findColValInOterSheetByDb(data, &db, rows,	&sheetData, sheetData.classficationColIdx)
+		}
+
+		for _, icb := range data.icbList {
+			if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
+				if sheetInfo[2] == "Y" && icb.province == ""{
+					icb.province = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.provinceColIdx)
+				}
+	
+				if icb.classfication != ""{
+					continue;
+				}
+	
+				icb.classfication = findColValInOterSheetByIcb(data, &icb, rows,	&sheetData, sheetData.classficationColIdx)
+	
+			}
+		}
+	}
+	
+	for _,sheetInfo:= range data.conf.mcSheets{
+			sheetData,err:= getOtherSheetData(data, data.gisXlsx, sheetInfo)
+			if err != nil{
+				return err;
+			}
+			rows := sheetData.rows[sheetData.headerIdx:]
+			for _, db:= range data.dbList{
+				if db.province != ""{
+					break;
+				}
+
+				db.province = findColValInOterSheetByDb(data, &db, rows, &sheetData, sheetData.partnerColIdx)
+			} 
+
+			for _, icb := range data.icbList {
+				if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
+					if icb.province != ""{
+						break;
+					}
+	
+					icb.province = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.partnerColIdx)
+				}
+			}
+	}
+	return nil
+}
+
+func findColValInOterSheetByDb(data *data_t, db *db_t, rows [][]string, sheetData * other_sheet_data_t, valColIdx int)string{
+	val:= ""
+	val = findColValInOtherSheet(data, db.idx, rows, sheetData.wbsColIdx, sheetData.dbSoNoColIdx, valColIdx)
+	if val == ""{
+		for _,icbIdx := range db.icbIdxs{
+			val = findColValInOtherSheet(data, icbIdx, rows, sheetData.wbsColIdx, sheetData.soNoColIdx, valColIdx)
+			if val != ""{
+				break;
+			}
+		}
+	}
+	return val
+}
+
+func findColValInOterSheetByIcb(data *data_t, icb *icb_t, rows [][]string, sheetData * other_sheet_data_t, valColIdx int)string{
+	return findColValInOtherSheet(data, icb.idx, rows, sheetData.wbsColIdx, sheetData.dbSoNoColIdx, valColIdx)
+}
+
+func findColValInOtherSheet(data *data_t, idx int, rows [][]string, wbsColIdx, soNoColIdx, valColIdx int)string{	
+	wbs:= strings.TrimSpace(data.odCopaRows[idx][data.odCopaHeader["OD_COPA_WBS"]])
+	soNo:= strings.TrimSpace(data.odCopaRows[idx][data.odCopaHeader["OD_COPA_SO"]])
+
+	for _, row := range rows{
+		if ex:= data.odCopaRows[idx][data.odCopaHeader["OD_COPA_EX"]];ex == "Y"{
+			if wbs != "" && wbs == strings.TrimSpace(row[wbsColIdx]){
+				return row[valColIdx]
+			}
+
+			if soNo != "" && soNo == strings.TrimSpace(row[soNoColIdx]){
+				return row[valColIdx]
+			}
+		}	
+	} 
+	return  ""
+}

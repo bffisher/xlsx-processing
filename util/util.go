@@ -67,6 +67,13 @@ func CopyRowToArray(array [][2]string, row []string, keyIdx, valIdx int) [][2]st
 	return array
 }
 
+func CopyRowToArray2(array [][3]string, row []string, keyIdx, val1Idx, val2Idx int) [][3]string {
+	if row[keyIdx] != "" {
+		array = append(array, [3]string{row[keyIdx], row[val1Idx], row[val2Idx]})
+	}
+	return array
+}
+
 func ConvColNameToIdx(row []string, colNames map[string]string, colIdxs map[string]int, keyFilter func(key string) bool) {
 	for index, col := range row {
 		col := strings.TrimSpace(col)

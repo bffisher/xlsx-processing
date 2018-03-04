@@ -14,11 +14,11 @@ const _OUTPUT_SHEET = "Sheet1"
 type outputCols_t struct {
 	DB_PC, DB_SO, DB_TP, DB_EX, DB_PH, DB_PPC, DB_NO, DB_OOH, DB_NS, DB_COS, DB_GM int
 	PC, SO, TP, EX, NO, OOH, NS, COS, GM                                           int
-	NO_ICB ,PRODUCT int
+	NO_ICB ,PRODUCT, PROVINCE, CLASSFICATION int
 }
 
 var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,	21}
+	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,	21, 22, 23}
 var lastOutputCol int = outputCols.GM
 
 func output(data *data_t) error {
@@ -89,39 +89,43 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 
 		for _, idx := range db.icbIdxs {
 			writeIcb(xlsx, data, rowIdx, idx)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PROVINCE), db.province)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.CLASSFICATION), db.classfication)
 			rowIdx++
 		}
 
 		if len(db.icbIdxs) == 0 {
 			//Product
 			writeProduct(xlsx, data, rowIdx, db.idx)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PROVINCE), db.province)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.CLASSFICATION), db.classfication)
 			rowIdx++
 		}
 	}
 
 	for _, icb := range data.icbList {
-		if icb.dbIdx == _DB_IDX_NO_DATA {
+		if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
 			writeIcb(xlsx, data, rowIdx, icb.idx)
-			// Sales order
-			if icb.dbWbs != ""{
-				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbWbs[0:17])
-			}else{
-				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbSoNo)
+			if icb.dbIdx == _DB_IDX_NO_DATA {
+				// Sales order
+				if icb.dbWbs != ""{
+					xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbWbs[0:17])
+				}else{
+					xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), icb.dbSoNo)
+				}
+				// New Order
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NO), 0)
+				// Orders on hand
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_OOH), 0)
+				// Net Sales
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NS), 0)
+				// COS
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_COS), 0)
+				// Gr. Margin
+				xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), 0)
 			}
-			// New Order
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NO), 0)
-			// Orders on hand
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_OOH), 0)
-			// Net Sales
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NS), 0)
-			// COS
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_COS), 0)
-			// Gr. Margin
-			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), 0)
-
-			rowIdx++
-		}else if icb.dbIdx == _DB_IDX_NO_RELATION{
-			writeIcb(xlsx, data, rowIdx, icb.idx)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PROVINCE), icb.province)
+			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.CLASSFICATION), icb.classfication)
 			rowIdx++
 		}
 	}
