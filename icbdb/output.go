@@ -19,7 +19,7 @@ type outputCols_t struct {
 
 var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,	21, 22, 23}
-var lastOutputCol int = outputCols.GM
+var lastOutputCol int = outputCols.CLASSFICATION
 
 func output(data *data_t) error {
 
@@ -75,6 +75,14 @@ func writeHeader(xlsx *excelize.File, conf *config_t) error {
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.DB_COS), "[DB]"+conf.columns["OD_COPA_COS"])
 	// Gr. Margin
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.DB_GM), "[DB]"+conf.columns["OD_COPA_GM"])
+
+	// PRODUCT
+	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.PRODUCT), "PRODUCT")
+	// PROVINCE
+	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.PROVINCE), "PROVINCE")
+	// CLASSFICATION
+	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.CLASSFICATION), "CLASSFICATION")
+
 
 	headerStyle, _ := xlsx.NewStyle(`{"fill":{"type":"pattern","color":["#000080"],"pattern":1}, "font":{"color":"#FFFFFF", "bold":true}}`)
 	xlsx.SetCellStyle(_OUTPUT_SHEET, util.Axis(0, 0), util.Axis(0, lastOutputCol), headerStyle)
@@ -219,8 +227,7 @@ func writeIcb(xlsx *excelize.File, data *data_t, rowIdx, idx int) {
 	// Gr. Margin
 	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.GM), getFloatFromODCopa(data, idx, "OD_COPA_GM"))
 	//Product
-	writeProduct(xlsx, data, rowIdx, idx)
-	
+	writeProduct(xlsx, data, rowIdx, idx)	
 }
 
 func writeProduct(xlsx *excelize.File, data *data_t, rowIdx, idx int){
