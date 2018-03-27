@@ -92,10 +92,10 @@ func Exec(confFile string) error {
 
 	log.Print("Matching... ")
 	splitIcbDb(data)
-	// err = resolveIcbDbRelation(data)
-	// if err != nil {
-	// 	return err
-	// }
+	err = resolveIcbDbRelation(data)
+	if err != nil {
+		return err
+	}
 
 	log.Print("Finding province and classfication...")
 	findProvinceAndClassfication(data)
@@ -298,7 +298,7 @@ func matchODCopaWBS(data *data_t, wbs string, rowIdx int) int {
 
 	for index, db := range data.dbList {
 		dbWbs := strings.TrimSpace(data.odCopaRows[db.idx][wbsColIdx])
-		if dbWbs != "" && wbs[0:17] == dbWbs[0:17] {
+		if dbWbs != "" && strings.Contains(wbs, dbWbs[0:17]) {
 			// icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
 			// dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
 			// if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
@@ -341,40 +341,40 @@ func findProvinceAndClassfication(data *data_t)error{
 		rows := sheetData.rows[sheetData.headerIdx:]
 		for index, db:= range data.dbList{
 			if sheetInfo[2] == "Y" && db.province == "" && sheetData.provinceColIdx >= 0{
-				data.dbList[index].province = findColValInOterSheetByDb(data, &db, rows, &sheetData, sheetData.provinceColIdx)
+				data.dbList[index].province = findColValInOterSheetByDb(data, &db, rows, &sheetData, sheetData.provinceColIdx, "Y")
 			}
 
 			if db.classfication == "" && sheetData.classficationColIdx >= 0{
-				data.dbList[index].classfication = findColValInOterSheetByDb(data, &db, rows,	&sheetData, sheetData.classficationColIdx)
+				data.dbList[index].classfication = findColValInOterSheetByDb(data, &db, rows,	&sheetData, sheetData.classficationColIdx, "N")
 			}
 		}
 
 		for index, icb := range data.icbList {
 			if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
 				if sheetInfo[2] == "Y" && icb.province == "" && sheetData.provinceColIdx >= 0{
-					data.icbList[index].province = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.provinceColIdx)
+					data.icbList[index].province = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.provinceColIdx, "Y")
 				}
 	
 				if icb.classfication == "" && sheetData.classficationColIdx >= 0{
-					data.icbList[index].classfication = findColValInOterSheetByIcb(data, &icb, rows,	&sheetData, sheetData.classficationColIdx)
+					data.icbList[index].classfication = findColValInOterSheetByIcb(data, &icb, rows,	&sheetData, sheetData.classficationColIdx, "N")
 				}
 			}
 		}
 	}
 	
 	for _,sheetInfo:= range data.conf.mcSheets{
-			sheetData,err:= getOtherSheetData(data, data.gisXlsx, sheetInfo)
+			sheetData,err:= getOtherSheetData(data, data.mcXlsx, sheetInfo)
 			if err != nil{
 				return err;
 			}
 			rows := sheetData.rows[sheetData.headerIdx:]
 			for index, db:= range data.dbList{
 				if db.province == "" && sheetData.partnerColIdx >= 0{
-					data.dbList[index].province = findColValInOterSheetByDb(data, &db, rows, &sheetData, sheetData.partnerColIdx)
+					data.dbList[index].province = findColValInOterSheetByDb(data, &db, rows, &sheetData, sheetData.partnerColIdx, "Y")
 				}
 
 				if db.classfication == "" && sheetData.classficationColIdx >= 0{
-					data.dbList[index].classfication = findColValInOterSheetByDb(data, &db, rows,	&sheetData, sheetData.classficationColIdx)
+					data.dbList[index].classfication = findColValInOterSheetByDb(data, &db, rows,	&sheetData, sheetData.classficationColIdx, "N")
 				}
 			} 
 
@@ -382,11 +382,11 @@ func findProvinceAndClassfication(data *data_t)error{
 				if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
 	
 					if icb.province == "" && sheetData.partnerColIdx >= 0{
-						data.icbList[index].province = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.partnerColIdx)
+						data.icbList[index].province = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.partnerColIdx, "Y")
 					}
 
 					if icb.classfication == "" && sheetData.classficationColIdx >= 0{
-						data.icbList[index].classfication = findColValInOterSheetByIcb(data, &icb, rows,	&sheetData, sheetData.classficationColIdx)
+						data.icbList[index].classfication = findColValInOterSheetByIcb(data, &icb, rows,	&sheetData, sheetData.classficationColIdx, "N")
 					}
 				}
 			}
@@ -394,12 +394,12 @@ func findProvinceAndClassfication(data *data_t)error{
 	return nil
 }
 
-func findColValInOterSheetByDb(data *data_t, db *db_t, rows [][]string, sheetData * other_sheet_data_t, valColIdx int)string{
+func findColValInOterSheetByDb(data *data_t, db *db_t, rows [][]string, sheetData * other_sheet_data_t, valColIdx int, export string)string{
 	val:= ""
-	val = findColValInOtherSheet(data, db.idx, rows, sheetData.wbsColIdx, sheetData.dbSoNoColIdx, valColIdx)
+	val = findColValInOtherSheet(data, db.idx, rows, sheetData.wbsColIdx, sheetData.dbSoNoColIdx, valColIdx, export)
 	if val == ""{
 		for _,icbIdx := range db.icbIdxs{
-			val = findColValInOtherSheet(data, icbIdx, rows, sheetData.wbsColIdx, sheetData.soNoColIdx, valColIdx)
+			val = findColValInOtherSheet(data, icbIdx, rows, sheetData.wbsColIdx, sheetData.soNoColIdx, valColIdx, export)
 			if val != ""{
 				break;
 			}
@@ -408,22 +408,22 @@ func findColValInOterSheetByDb(data *data_t, db *db_t, rows [][]string, sheetDat
 	return val
 }
 
-func findColValInOterSheetByIcb(data *data_t, icb *icb_t, rows [][]string, sheetData * other_sheet_data_t, valColIdx int)string{
-	return findColValInOtherSheet(data, icb.idx, rows, sheetData.wbsColIdx, sheetData.dbSoNoColIdx, valColIdx)
+func findColValInOterSheetByIcb(data *data_t, icb *icb_t, rows [][]string, sheetData * other_sheet_data_t, valColIdx int, export string)string{
+	return findColValInOtherSheet(data, icb.idx, rows, sheetData.wbsColIdx, sheetData.dbSoNoColIdx, valColIdx, export)
 }
 
-func findColValInOtherSheet(data *data_t, idx int, rows [][]string, wbsColIdx, soNoColIdx, valColIdx int)string{	
+func findColValInOtherSheet(data *data_t, idx int, rows [][]string, wbsColIdx, soNoColIdx, valColIdx int, export string)string{	
 	wbs:= strings.TrimSpace(data.odCopaRows[idx][data.odCopaHeader["OD_COPA_WBS"]])
 	soNo:= strings.TrimSpace(data.odCopaRows[idx][data.odCopaHeader["OD_COPA_SO"]])
 
 	for _, row := range rows{
-		if ex:= data.odCopaRows[idx][data.odCopaHeader["OD_COPA_EX"]];ex == "Y"{
-			if wbs != "" && wbs == strings.TrimSpace(row[wbsColIdx]){
+		if ex:= data.odCopaRows[idx][data.odCopaHeader["OD_COPA_EX"]];ex == export{
+			if wbsColIdx >= 0 && wbs != "" && strings.Contains(strings.TrimSpace(row[wbsColIdx]), wbs[0:17]) {
 				// log.Print("wbs",valColIdx)
 				return row[valColIdx]
 			}
 
-			if soNo != "" && soNo == strings.TrimSpace(row[soNoColIdx]){
+			if soNoColIdx >= 0 && soNo != "" && soNo == strings.TrimSpace(row[soNoColIdx]){
 				// log.Print("soNo",valColIdx)
 				return row[valColIdx]
 			}
