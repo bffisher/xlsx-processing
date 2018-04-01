@@ -93,9 +93,14 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 	warnCellStyle, _ := xlsx.NewStyle(`{"fill":{"type":"pattern","color":["#FFFF00"],"pattern":1}}`)
 	rowIdx := 1
 	for _, db := range data.dbList {
-		writeDb(xlsx, data, rowIdx, &db, warnCellStyle)
-
+		writeDb(xlsx, data, rowIdx, &db, warnCellStyle, true)
+    isFirst := true
 		for _, idx := range db.icbIdxs {
+			if isFirst{
+				isFirst = false
+			}else{
+				writeDb(xlsx, data, rowIdx, &db, warnCellStyle, false)
+			}
 			writeIcb(xlsx, data, rowIdx, idx)
 			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PROVINCE), db.province)
 			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.CLASSFICATION), db.classfication)
@@ -103,6 +108,8 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 		}
 
 		if len(db.icbIdxs) == 0 {
+			// Sales order
+			xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.SO), db.icbSoNo)
 			//Product
 			writeProduct(xlsx, data, rowIdx, db.idx)
 			xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PROVINCE), db.province)
@@ -145,27 +152,27 @@ func writeBody(xlsx *excelize.File, data *data_t) error {
 	return nil
 }
 
-func writeDb(xlsx *excelize.File, data *data_t, rowIdx int, db *db_t, warnCellStyle int) {
+func writeDb(xlsx *excelize.File, data *data_t, rowIdx int, db *db_t, warnCellStyle int, isRealValue bool) {
 	icbLen := len(db.icbIdxs)
 	// Profit center
 	dbPCAxis := util.Axis(rowIdx, outputCols.DB_PC)
 	dbPC := getValFromODCopa(data, db.idx, "OD_COPA_PC")
 	xlsx.SetCellStr(_OUTPUT_SHEET, dbPCAxis, dbPC)
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_PC)
+	// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_PC)
 	// Sales order
 	if dbWBS := getValFromODCopa(data, db.idx, "OD_COPA_WBS"); dbWBS != "" {
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), dbWBS[0:17])
 	} else {
 		xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_SO), getValFromODCopa(data, db.idx, "OD_COPA_SO"))
 	}
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_SO)
+	// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_SO)
 	// Trad. partn.
 	dbTR := getValFromODCopa(data, db.idx, "OD_COPA_TP")
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_TP), dbTR)
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_TP)
+	// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_TP)
 	// Export
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_EX), getValFromODCopa(data, db.idx, "OD_COPA_EX"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_EX)
+	// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_EX)
 	// 	Product Hierarchy
 	dbPHAxis := util.Axis(rowIdx, outputCols.DB_PH)
 	dbPH := getValFromODCopa(data, db.idx, "OD_COPA_PH")
@@ -173,26 +180,43 @@ func writeDb(xlsx *excelize.File, data *data_t, rowIdx int, db *db_t, warnCellSt
 		dbPH = getValFromODCopa(data, db.icbIdxs[0], "OD_COPA_PH")
 	}
 	xlsx.SetCellStr(_OUTPUT_SHEET, dbPHAxis, dbPH)
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_PH)
+	// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_PH)
 	// Partner Profit Center:
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_PPC), getValFromODCopa(data, db.idx, "OD_COPA_PPC"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_PPC)
-	// New Order
-	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NO), getFloatFromODCopa(data, db.idx, "OD_COPA_NO"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_NO)
-	// Orders on hand
-	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_OOH), getFloatFromODCopa(data, db.idx, "OD_COPA_OOH"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_OOH)
-	// Net Sales
-	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NS), getFloatFromODCopa(data, db.idx, "OD_COPA_NS"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_NS)
-	// COS
-	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_COS), getFloatFromODCopa(data, db.idx, "OD_COPA_COS"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_COS)
-	// Gr. Margin
-	xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), getFloatFromODCopa(data, db.idx, "OD_COPA_GM"))
-	tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_GM)
-
+	// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_PPC)
+	if isRealValue {
+		// New Order
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NO), getFloatFromODCopa(data, db.idx, "OD_COPA_NO"))
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_NO)
+		// Orders on hand
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_OOH), getFloatFromODCopa(data, db.idx, "OD_COPA_OOH"))
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_OOH)
+		// Net Sales
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NS), getFloatFromODCopa(data, db.idx, "OD_COPA_NS"))
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_NS)
+		// COS
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_COS), getFloatFromODCopa(data, db.idx, "OD_COPA_COS"))
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_COS)
+		// Gr. Margin
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), getFloatFromODCopa(data, db.idx, "OD_COPA_GM"))
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_GM)
+	}else{
+		// New Order
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NO), 0)
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_NO)
+		// Orders on hand
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_OOH),0)
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_OOH)
+		// Net Sales
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_NS), 0)
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_NS)
+		// COS
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_COS), 0)
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_COS)
+		// Gr. Margin
+		xlsx.SetCellValue(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.DB_GM), 0)
+		// tryMergeCells(xlsx, rowIdx, icbLen, outputCols.DB_GM)
+	}
 	if ok := checkPCPH(data, dbPC, dbPH); !ok {
 		xlsx.SetCellStyle(_OUTPUT_SHEET, dbPCAxis, dbPCAxis, warnCellStyle)
 		xlsx.SetCellStyle(_OUTPUT_SHEET, dbPHAxis, dbPHAxis, warnCellStyle)
