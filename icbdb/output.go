@@ -13,12 +13,12 @@ const _OUTPUT_SHEET = "Sheet1"
 
 type outputCols_t struct {
 	DB_PC, DB_SO, DB_TP, DB_EX, DB_PH, DB_PPC, DB_NO, DB_OOH, DB_NS, DB_COS, DB_GM int
-	PC, SO, TP, EX, NO, OOH, NS, COS, GM                                           int
+	PC, SO, WBS, TP, EX, NO, OOH, NS, COS, GM                                           int
 	NO_ICB ,PRODUCT, PROVINCE, CLASSFICATION int
 }
 
 var outputCols outputCols_t = outputCols_t{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,	21, 22, 23}
+	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,	21, 22, 23, 24}
 var lastOutputCol int = outputCols.CLASSFICATION
 
 func output(data *data_t) error {
@@ -35,6 +35,8 @@ func writeHeader(xlsx *excelize.File, conf *config_t) error {
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.PC), conf.columns["OD_COPA_PC"])
 	// Sales order
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.SO), conf.columns["OD_COPA_SO"])
+	// WBS Element
+	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.WBS), conf.columns["OD_COPA_WBS"])
 	// Trad. partn.
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(0, outputCols.TP), conf.columns["OD_COPA_TP"])
 	// Export
@@ -236,6 +238,8 @@ func writeIcb(xlsx *excelize.File, data *data_t, rowIdx, idx int) {
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.PC), getValFromODCopa(data, idx, "OD_COPA_PC"))
 	// Sales order
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.SO), getValFromODCopa(data, idx, "OD_COPA_SO"))
+	// WBS Element
+	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.WBS), getValFromODCopa(data, idx, "OD_COPA_WBS"))
 	// Trad. partn.
 	xlsx.SetCellStr(_OUTPUT_SHEET, util.Axis(rowIdx, outputCols.TP), getValFromODCopa(data, idx, "OD_COPA_TP"))
 	// Export
