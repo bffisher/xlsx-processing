@@ -7,3 +7,5 @@
 
 *.exe
 /test_files/**/*
+
+debug

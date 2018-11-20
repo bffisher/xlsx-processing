@@ -11,7 +11,7 @@ import (
 const CONFIG_FILE_PATH = "_conf.xlsx"
 
 func main() {
-	var task string = ""
+	task := ""
 	if len(os.Args) > 1 {
 		task = os.Args[1]
 	}
