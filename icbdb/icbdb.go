@@ -30,7 +30,6 @@ type db_t struct {
 }
 
 type data_t struct {
-	path         string
 	conf         *config_t
 	odXlsx, gisXlsx, mcXlsx       *excelize.File
 	odCopaRows   [][]string
@@ -52,25 +51,25 @@ const _PC_P8211 = "P8211"
 const _DB_IDX_NO_RELATION = -1
 const _DB_IDX_NO_DATA = -2
 
-func Exec(confFile string) error {
+func Exec() error {
 	data := &data_t{}
 
 	log.Print("Reading... ")
-	conf, err := readConfig(data.path + confFile)
+	conf, err := readConfig(util.Env().ConfigFullName)
 	if err != nil {
 		return err
 	}
 	data.conf = conf
 
-	odXlsx, err := excelize.OpenFile(data.path + conf.files["OD"])
+	odXlsx, err := excelize.OpenFile(util.Env().FilePath + conf.files["OD"])
 	if err != nil {
 		return err
 	}
-	gisXlsx, err := excelize.OpenFile(data.path + conf.files["GIS"])
+	gisXlsx, err := excelize.OpenFile(util.Env().FilePath + conf.files["GIS"])
 	if err != nil {
 		return err
 	}
-	mcXlsx, err := excelize.OpenFile(data.path + conf.files["MC"])
+	mcXlsx, err := excelize.OpenFile(util.Env().FilePath + conf.files["MC"])
 	if err != nil {
 		return err
 	}

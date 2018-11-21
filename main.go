@@ -1,16 +1,17 @@
 package main
 
 import (
-	"log"
 	"os"
+	"log"
+	"xlsx-processing/util"
 	"xlsx-processing/copa"
 	"xlsx-processing/icbdb"
 	"xlsx-processing/unbilledCost"
 )
 
-const CONFIG_FILE_PATH = "_conf.xlsx"
-
 func main() {
+	util.InitEnv()
+
 	task := ""
 	if len(os.Args) > 1 {
 		task = os.Args[1]
@@ -29,17 +30,17 @@ func main() {
 }
 
 func execCopa() {
-	err := copa.Exec(CONFIG_FILE_PATH)
+	err := copa.Exec()
 	handleResult("copa", err);
 }
 
 func execIcbdb() {
-	err := icbdb.Exec(CONFIG_FILE_PATH)
+	err := icbdb.Exec()
 	handleResult("icbdb", err);
 }
 
 func execUnbilledCost(){
-	err := unbilledCost.Exec(CONFIG_FILE_PATH)
+	err := unbilledCost.Exec()
 	handleResult("unbilled cost", err);
 }
 

@@ -4,9 +4,24 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-
+	"os"
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
+
+type env_t struct{
+	FilePath, ConfigFullName string
+}
+
+var env env_t
+
+func InitEnv(){
+	env.FilePath = os.Getenv("_SOURCE_FILE_PATH")
+	env.ConfigFullName = env.FilePath + "_conf.xlsx"
+}
+
+func Env() *env_t{
+	return &env
+}
 
 //row: row index, col: column index, them start from 0
 func Axis(row, col int) string {

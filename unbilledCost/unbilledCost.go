@@ -1,6 +1,5 @@
 package unbilledCost
 import (
-	"os"
 	"errors"
 	"log"
 	"strconv"
@@ -34,13 +33,12 @@ var data struct {
 	ucRightData []uc_right_data_t
 }
 
-func Exec(confFile string) error {
-	filePath := os.Getenv("_SOURCE_FILE_PATH")
+func Exec() error {
 	var err error
-	data.conf, err = readConfig(filePath + confFile)
+	data.conf, err = readConfig(util.Env().ConfigFullName)
 	if(err != nil) {return err}
 
-	err=openExcelFiles(filePath);
+	err=openExcelFiles(util.Env().FilePath);
 	if(err != nil) {return err}
 	
 	err = readUC()

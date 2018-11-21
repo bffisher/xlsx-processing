@@ -2,17 +2,17 @@ package copa
 
 import (
 	"strings"
-
+	"xlsx-processing/util"
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
-func Exec(confFilePath string) error {
-	config, err := handleConfig(confFilePath)
+func Exec() error {
+	config, err := handleConfig(util.Env().ConfigFullName)
 	if err != nil {
 		return err
 	}
 
-	xlsx, err := excelize.OpenFile(config.filePath)
+	xlsx, err := excelize.OpenFile(util.Env().FilePath)
 	if err != nil {
 		return err
 	}

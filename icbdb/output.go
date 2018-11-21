@@ -26,7 +26,7 @@ func output(data *data_t) error {
 	xlsx := excelize.NewFile()
 	writeHeader(xlsx, data.conf)
 	writeBody(xlsx, data)
-	xlsx.SaveAs(data.path + _OUTPUT_FILE)
+	xlsx.SaveAs(util.Env().FilePath + _OUTPUT_FILE)
 	return nil
 }
 
