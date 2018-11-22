@@ -23,6 +23,15 @@ func Env() *env_t{
 	return &env
 }
 
+func IsEmptyRow(row []string)bool{
+	for _,item := range row{
+		if item != ""{
+			return false;
+		}
+	}
+	return true;
+}
+
 //row: row index, col: column index, them start from 0
 func Axis(row, col int) string {
 	row++
