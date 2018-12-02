@@ -65,6 +65,8 @@ func Exec() error {
 	err = resolveUCLeftRightRelation()
 	if(err != nil) {return err}
 
+	output()
+
 	return nil
 }
 
@@ -112,9 +114,49 @@ func readUC()error{
 	if data.ucObjColIdx < 0 {
 		return errors.New("Can't find object column!")
 	}
-	for index, row := range data.ucData {
-		data.ucData[index][data.ucObjColIdx] = parseUCObjValue(strings.TrimSpace(row[data.ucObjColIdx]))
+
+	newRows := make([][]string, 0)
+	for _, row := range data.ucData {
+		orderVal := row[data.ucObjColIdx]
+		if strings.Index(orderVal, "800") == 0 || strings.Index(orderVal, "7") == 0{
+			continue
+		}
+		
+		row[data.ucObjColIdx] = parseUCObjValue(strings.TrimSpace(row[data.ucObjColIdx]))
+
+		newRows = append(newRows, row)
 	}
+	data.ucData = newRows
+
+	count := len(data.ucData)
+	for i := 0; i < count; i++{
+		if data.ucData[i][data.ucObjColIdx] == ""{
+			continue
+		}
+
+		for j:=i+1; j < count; j++{
+			if data.ucData[i][data.ucObjColIdx] ==  data.ucData[j][data.ucObjColIdx]{
+				
+				for colIdx:=3; colIdx < len(data.ucData[j]); colIdx++{
+					intval1,_ := strconv.ParseFloat(data.ucData[i][colIdx], 64)
+					intval2,_ := strconv.ParseFloat(data.ucData[j][colIdx], 64)
+					data.ucData[i][colIdx] = strconv.FormatFloat(intval1 + intval2, 'f', -1, 64)
+				}
+
+				data.ucData[j][data.ucObjColIdx] = ""
+			}
+		}
+	}
+
+	newRows = make([][]string, 0)
+	for _, row := range data.ucData {
+		if row[data.ucObjColIdx] == ""{
+			continue
+		}
+		newRows = append(newRows, row)
+	}
+	data.ucData = newRows
+
 	log.Println("Read unbilled cost data. OK!")
 	return nil
 }
@@ -209,11 +251,11 @@ func findUCRightByGIS()error{
 
 	for index, name := range data.gisHeader {
 		if name == "SAP Order No.                   Segment  SO Number" {
-			colIndex.soNo = index
+			colIndex.dbSoNo = index
 		}else if name == "CCM--WBS No." {
 			colIndex.wbs = index
 		}else if name == "SAP Order No.                 Operation  SO number" {
-			colIndex.dbSoNo = index
+			colIndex.soNo = index
 		}else if name == "Product" {
 			colIndex.product = index
 		}else if name == "Project Name" {
@@ -239,7 +281,7 @@ func findUCRightByGIS()error{
 		}
 		row[colIndex.soNo] = strings.TrimSpace(row[colIndex.soNo])
 		row[colIndex.wbs] = parseWbsNoValue(strings.TrimSpace(row[colIndex.wbs]))
-		row[colIndex.soNo] = strings.TrimSpace(row[colIndex.dbSoNo])
+		row[colIndex.dbSoNo] = strings.TrimSpace(row[colIndex.dbSoNo])
 
 		newRows = append(newRows, row)
 	}
@@ -323,25 +365,8 @@ func findUCRightByGIS2()error{
 	return nil
 }
 
-// func handleHeader(row []string, header map[string]int, prefix string)error{
-// 	filter := func(key string) bool {
-// 		return strings.Index(key, prefix) == 0
-// 	}
-// 	util.ConvColNameToIdx(row, data.conf.columns, header, filter)
-// 	err := util.CheckColNameIdx(data.conf.columns, header, filter)
-// 	if(err != nil){
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 func findUCRight(rows [][]string, colIndex col_index_t)error{
 	for leftIndex, left := range data.ucLeftData{
-		// if len(left.rightIdxs) > 0{
-		// 	continue
-		// }
-
 		ucObjVal := data.ucData[left.idx][data.ucObjColIdx]
 		for _, row := range rows{
 			wbsVal := ""
@@ -349,7 +374,7 @@ func findUCRight(rows [][]string, colIndex col_index_t)error{
 				wbsVal = row[colIndex.wbs]
 			}
 			dbSoNoVal := strings.TrimSpace(row[colIndex.dbSoNo])
-			if(wbsVal != "" && ucObjVal == wbsVal || ucObjVal ==  dbSoNoVal){
+			if(wbsVal != "" && ucObjVal == wbsVal || ucObjVal == dbSoNoVal){
 				if colIndex.product > 0{
 					data.ucLeftData[leftIndex].product = row[colIndex.product]
 				}
