@@ -66,9 +66,7 @@ func writeBody(xlsx *excelize.File){
 	}
 }
 
-func orderUcRightData()[]uc_right_data_t{
-	result := make([]uc_right_data_t, 0)
-
+func orderUcRightData(){
 	len := len(data.ucRightData)
 	for i:= 0; i<len; i++{
 		if data.ucRightData[i].leftIdx == DB_IDX_NO_RELATION || data.ucRightData[i].leftIdx == DB_IDX_NO_DATA{
@@ -83,8 +81,6 @@ func orderUcRightData()[]uc_right_data_t{
 			}
 		}
 	}
-
-	return result
 }
 
 func writeUcHeader(xlsx *excelize.File, beginColIdx int){
