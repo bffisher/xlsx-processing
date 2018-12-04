@@ -20,9 +20,9 @@ func output() {
 }
 
 func writeBody(xlsx *excelize.File){
-	extColIdx := 1
-	leftBeginColIdx := 7
+	leftBeginColIdx := 0
 	rightBeginColIdx := leftBeginColIdx + len(data.ucData[0])
+	extColIdx := rightBeginColIdx +  len(data.ucData[0])
 
 	//write header
 	writeUcHeader(xlsx, leftBeginColIdx)
@@ -37,9 +37,9 @@ func writeBody(xlsx *excelize.File){
 
 	for _, ucLeft := range(data.ucLeftData){
 		writeUcData(xlsx, ucLeft.idx, rowIdx, leftBeginColIdx)
-		writeExData(xlsx, ucLeft, rowIdx, extColIdx)
+		writeExDataForLeft(xlsx, ucLeft, rowIdx, extColIdx)
 
-		if len(ucLeft.rightIdxs) == 0{
+		if len(ucLeft.rightIdxs) == 0 && len(ucLeft.noRightSoNoList) == 0{
 			rowIdx ++
 			continue
 		}
@@ -48,15 +48,20 @@ func writeBody(xlsx *excelize.File){
 			writeUcData(xlsx, ucRightIdx, rowIdx, rightBeginColIdx)
 			rowIdx ++
 		}
+
+		for _, soNo := range(ucLeft.noRightSoNoList){
+			xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, rightBeginColIdx + data.ucObjColIdx), soNo)
+			rowIdx ++
+		} 
 	}
 
 	for _, ucRight := range(data.ucRightData){
-		if ucRight.leftIdx != DB_IDX_NO_RELATION{
-			continue
+		if ucRight.leftIdx == DB_IDX_NO_RELATION || ucRight.leftIdx == DB_IDX_NO_DATA{
+			xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, leftBeginColIdx + data.ucObjColIdx), ucRight.dbSoNo)		
+			writeExDataForRight(xlsx, ucRight, rowIdx, extColIdx)
+			writeUcData(xlsx, ucRight.idx, rowIdx, rightBeginColIdx)
+			rowIdx ++
 		}
-
-		writeUcData(xlsx, ucRight.idx, rowIdx, rightBeginColIdx)
-		rowIdx ++
 	}
 }
 
@@ -64,7 +69,6 @@ func writeUcHeader(xlsx *excelize.File, beginColIdx int){
 	offColIdx := 0
 	for _, cell := range(data.ucHeader){
 		xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(0, offColIdx + beginColIdx), cell)
-
 		offColIdx ++
 	}
 }
@@ -73,15 +77,22 @@ func writeUcData(xlsx *excelize.File, dataIdx, rowIdx , beginColIdx int){
 	offColIdx := 0
 	for _, cell := range(data.ucData[dataIdx]){
 		xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, offColIdx + beginColIdx), cell)
-
 		offColIdx ++
 	}
 }
 
-func writeExData(xlsx *excelize.File, ucLeft uc_left_data_t, rowIdx , beginColIdx int){
+func writeExDataForLeft(xlsx *excelize.File, ucLeft uc_left_data_t, rowIdx , beginColIdx int){
 	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 0 + beginColIdx), ucLeft.product)
 	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 1 + beginColIdx), ucLeft.projectName)
 	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 2 + beginColIdx), ucLeft.customerNo)
 	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 3 + beginColIdx), ucLeft.customerName)
 	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 4 + beginColIdx), ucLeft.contractNo)
+}
+
+func writeExDataForRight(xlsx *excelize.File, ucRight uc_right_data_t, rowIdx , beginColIdx int){
+	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 0 + beginColIdx), ucRight.product)
+	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 1 + beginColIdx), ucRight.projectName)
+	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 2 + beginColIdx), ucRight.customerNo)
+	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 3 + beginColIdx), ucRight.customerName)
+	xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, 4 + beginColIdx), ucRight.contractNo)
 }

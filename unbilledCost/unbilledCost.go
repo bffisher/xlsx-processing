@@ -24,6 +24,8 @@ type uc_left_data_t struct{
 type uc_right_data_t struct{
 	idx int
 	leftIdx int
+	dbSoNo string
+	product, projectName, customerNo, customerName, contractNo string
 }
 
 type col_index_t struct{
@@ -137,7 +139,7 @@ func readUC()error{
 		for j:=i+1; j < count; j++{
 			if data.ucData[i][data.ucObjColIdx] ==  data.ucData[j][data.ucObjColIdx]{
 				
-				for colIdx:=3; colIdx < len(data.ucData[j]); colIdx++{
+				for colIdx := data.ucObjColIdx + 3; colIdx < len(data.ucData[j]); colIdx++{
 					intval1,_ := strconv.ParseFloat(data.ucData[i][colIdx], 64)
 					intval2,_ := strconv.ParseFloat(data.ucData[j][colIdx], 64)
 					data.ucData[i][colIdx] = strconv.FormatFloat(intval1 + intval2, 'f', -1, 64)
@@ -169,7 +171,7 @@ func splitUC()error{
 
 	for index, row := range data.ucData {
 		if strings.Index(strings.ToUpper(row[data.ucCustColIdx]), RIGHT_CUSTOMER_PREFIX) == 0 {
-			data.ucRightData = append(data.ucRightData, uc_right_data_t{index, DB_IDX_NO_RELATION})
+			data.ucRightData = append(data.ucRightData, uc_right_data_t{index, DB_IDX_NO_RELATION, "","","","","",""})
 		}else{
 			data.ucLeftData = append(data.ucLeftData, uc_left_data_t{index, make([]int, 0), make([]string, 0), "","","","",""})
 		}
@@ -180,30 +182,44 @@ func splitUC()error{
 
 func resolveUCLeftRightRelation()error{
 	log.Print("Matching... ")
-	err := findUCRightByIcbOrd()
-	if(err != nil) {return err}
+	log.Print("Left... ")
+	log.Println("ICB_ORD...")
+	_ ,icbOrdColIndex, icbOrdRows := readIcbOrd()
+	findUCRight(icbOrdRows, icbOrdColIndex)
+	log.Println("ICB_ORD..OK!")
 
-	err = findUCRightByGIS()
-	if(err != nil) {return err}
+	log.Println("GIS...")
+	_,gisColIndex, gisRows := readGIS()
+	findUCRight(gisRows, gisColIndex)
+	log.Println("GIS..OK!")
 
-	err = findUCRightByGIS2()
-	if(err != nil) {return err}
+	findUCRightByGIS2()
+	log.Println("Left... OK!")
 
-	log.Println("Matching OK!")
+	log.Print("Right... ")
+	log.Println("ICB_ORD...")
+	findUCLeft(icbOrdRows, icbOrdColIndex)
+	log.Println("ICB_ORD..OK!")
+	log.Println("GIS...")
+	findUCLeft(gisRows, gisColIndex)
+	log.Println("GIS..OK!")
+	findUCLeftByGIS2()
+	log.Print("Right...OK")
+
+	log.Println("Matching... OK!")
 	return nil
 }
 
-func findUCRightByIcbOrd()error{
-	log.Println("ICB_ORD...")
+func readIcbOrd()(error, col_index_t, [][]string){
 	sheet := data.conf.sheets["IO_SHEET"]
+	colIndex := newColIndex()
 	rows := data.ioXlsx.GetRows(sheet)
 	if len(rows) <= 1 {
-		return errors.New("Can not find '" + sheet + "' sheet")
+		return errors.New("Can not find '" + sheet + "' sheet"), colIndex, nil
 	}
 
 	data.ioHeader = rows[0]
-
-	colIndex := newColIndex()
+	
 	for index, name := range data.ioHeader {
 		if name == "SO No." {
 			colIndex.soNo = index
@@ -215,7 +231,7 @@ func findUCRightByIcbOrd()error{
 	}
 
 	if colIndex.soNo < 0 || colIndex.wbs < 0 || colIndex.dbSoNo < 0{
-		return errors.New("Can not find SO No./WBS/DB SO No. columns")
+		return errors.New("Can not find SO No./WBS/DB SO No. columns"), colIndex, nil
 	}
 
 	rows = rows[1:]
@@ -230,26 +246,24 @@ func findUCRightByIcbOrd()error{
 
 		newRows = append(newRows, row)
 	}
-	err := findUCRight(newRows, colIndex)
-	if(err != nil) {return err}
-	log.Println("ICB_ORD..OK!")
-	return nil
+	
+	return nil, colIndex, newRows
 }
 
-func findUCRightByGIS()error{
-	log.Println("GIS...")
+func readGIS()(error, col_index_t, [][]string){
 	sheet := data.conf.sheets["GIS_SHEET"]
+	colIndex := newColIndex()
 	headerLineNo := 5
 	rows := data.gisXlsx.GetRows(sheet)
 	if len(rows) <= headerLineNo {
-		return errors.New("Can not find '" + sheet + "' sheet header")
+		return errors.New("Can not find '" + sheet + "' sheet header"), colIndex, nil
 	}
 
 	data.gisHeader = rows[headerLineNo - 1]
 
-	colIndex := newColIndex()
 
 	for index, name := range data.gisHeader {
+		name = strings.TrimSpace(name)
 		if name == "SAP Order No.                   Segment  SO Number" {
 			colIndex.dbSoNo = index
 		}else if name == "CCM--WBS No." {
@@ -270,7 +284,7 @@ func findUCRightByGIS()error{
 	}
 
 	if colIndex.soNo < 0 || colIndex.wbs < 0 || colIndex.dbSoNo < 0{
-		return errors.New("Can not find SO No./WBS/DB SO No. columns")
+		return errors.New("Can not find SO No./WBS/DB SO No. columns"), colIndex, nil
 	}
 
 	rows = rows[headerLineNo:]
@@ -285,35 +299,67 @@ func findUCRightByGIS()error{
 
 		newRows = append(newRows, row)
 	}
-	err := findUCRight(newRows, colIndex)
-	if(err != nil) {return err}
-	log.Println("GIS..OK!")
-	return nil
+	
+	return nil, colIndex, newRows
 }
 
 func findUCRightByGIS2()error{
 	log.Println("GIS2...")
 	for _, item := range data.conf.gis2Sheets{
-		sheet, headerLineNoStr := item[0], item[1]
+		err,colIdex,rows := readGIS2Sheet(item)
+		if(err != nil){
+			continue
+		}
+
+		err = findUCRight(rows, colIdex)
+		if(err != nil) {
+			continue
+		}
+		log.Println(item[0] + "..OK!")
+	}
+	log.Println("GIS2..OK!")
+	return nil
+}
+
+func findUCLeftByGIS2()error{
+	log.Println("GIS2...")
+	for _, item := range data.conf.gis2Sheets{
+		err,colIdex,rows := readGIS2Sheet(item)
+		if(err != nil){
+			continue
+		}
+
+		err = findUCLeft(rows, colIdex)
+		if(err != nil) {
+			continue
+		}
+		log.Println(item[0] + "..OK!")
+	}
+	log.Println("GIS2..OK!")
+	return nil
+}
+
+func readGIS2Sheet(item [2]string)(error, col_index_t, [][]string){
+	sheet, headerLineNoStr := item[0], item[1]
 		log.Println(sheet + "...")
 		headerLineNo, err := strconv.Atoi(headerLineNoStr)
+		colIndex := newColIndex()
 		if(err != nil) {
 			log.Printf("Header Line No error(%s)\n", headerLineNoStr)
-			continue
+			return err,colIndex,nil
 		}
 
 		rows := data.gis2Xlsx.GetRows(sheet)
 		if len(rows) <= headerLineNo {
 			log.Printf("Can not find '%s' sheet\n", sheet)
-			continue
+			return err,colIndex,nil
 		}
 
-		colIndex := newColIndex()
 		for index, name := range rows[headerLineNo - 1] {
 			if name == "" {
 				continue
 			}
-			name = strings.ToLower(name)
+			name = strings.ToLower(strings.TrimSpace(name))
 
 			if colIndex.soNo == -1 && strings.Contains(name, "operation") {
 				colIndex.soNo = index
@@ -335,10 +381,10 @@ func findUCRightByGIS2()error{
 		}
 
 		if colIndex.soNo == -1 {
-			return errors.New("Can not find Operation No column in '" + sheet + "' sheet")
+			return errors.New("Can not find Operation No column in '" + sheet + "' sheet"),colIndex,nil
 		}
 		if colIndex.dbSoNo == -1 {
-			return errors.New("Can not find Segment No column in '" + sheet + "' sheet")
+			return errors.New("Can not find Segment No column in '" + sheet + "' sheet"),colIndex,nil
 		}
 
 		rows = rows[headerLineNo:]
@@ -354,15 +400,8 @@ func findUCRightByGIS2()error{
 			}
 			newRows = append(newRows, row)
 		}
-		err = findUCRight(newRows, colIndex)
-		if(err != nil) {
-			log.Printf("Find in '%s' error\n", sheet)
-			continue
-		}
-		log.Println(sheet + "..OK!")
-	}
-	log.Println("GIS2..OK!")
-	return nil
+
+		return nil,colIndex,newRows
 }
 
 func findUCRight(rows [][]string, colIndex col_index_t)error{
@@ -406,9 +445,61 @@ func findUCRight(rows [][]string, colIndex col_index_t)error{
 					}
 				}
 
-				if(!isFindRight){
-					data.ucLeftData[leftIndex].noRightSoNoList = append(data.ucLeftData[leftIndex].noRightSoNoList, soNoVal)
+				if(!isFindRight && soNoVal != ""){
+					isAdded := false
+					for _,addedSoNo := range(data.ucLeftData[leftIndex].noRightSoNoList){
+						if addedSoNo == soNoVal{
+							isAdded = true
+							break;
+						}
+					}
+					if !isAdded {
+						data.ucLeftData[leftIndex].noRightSoNoList = append(data.ucLeftData[leftIndex].noRightSoNoList, soNoVal)
+					}
 				}
+			}
+		}
+	}
+	return nil
+}
+
+func findUCLeft(rows [][]string, colIndex col_index_t)error{
+	for rightIndex, right := range data.ucRightData{
+		if right.leftIdx != DB_IDX_NO_RELATION && right.leftIdx != DB_IDX_NO_DATA{
+			continue
+		}
+
+		ucObjVal := data.ucData[right.idx][data.ucObjColIdx]
+		for _, row := range rows{
+			soNoVal := strings.TrimSpace(row[colIndex.soNo])
+			if(ucObjVal == soNoVal){
+				if colIndex.product > 0{
+					data.ucRightData[rightIndex].product = row[colIndex.product]
+				}
+				if colIndex.projectName > 0 {
+					data.ucRightData[rightIndex].projectName = row[colIndex.projectName]
+				}
+				if colIndex.customerNo > 0 {
+					data.ucRightData[rightIndex].customerNo = row[colIndex.customerNo]
+				}
+				if colIndex.customerName > 0 {
+					data.ucRightData[rightIndex].customerName = row[colIndex.customerName]
+				}
+				if colIndex.contractNo > 0 {
+					data.ucRightData[rightIndex].contractNo = row[colIndex.contractNo]
+				}
+
+				wbsVal := ""
+				if(colIndex.wbs >= 0){
+					wbsVal = row[colIndex.wbs]
+				}
+				if wbsVal != ""{
+					data.ucRightData[rightIndex].dbSoNo = wbsVal
+				}else{
+					dbSoNoVal := strings.TrimSpace(row[colIndex.dbSoNo])
+					data.ucRightData[rightIndex].dbSoNo = dbSoNoVal
+				}
+				data.ucRightData[rightIndex].leftIdx = DB_IDX_NO_DATA
 			}
 		}
 	}
