@@ -2,7 +2,7 @@ package unbilledCost
 
 import (
 	"log"
-	// "strconv"
+	"strings"
 	"xlsx-processing/util"
 
 	"github.com/360EntSecGroup-Skylar/excelize"
@@ -72,7 +72,7 @@ func orderUcRightData(){
 		if data.ucRightData[i].leftIdx == DB_IDX_NO_RELATION || data.ucRightData[i].leftIdx == DB_IDX_NO_DATA{
 			for j:= i + 1; j < len; j++{
 				if data.ucRightData[j].leftIdx == DB_IDX_NO_RELATION || data.ucRightData[j].leftIdx == DB_IDX_NO_DATA{
-					if data.ucRightData[i].dbSoNo > data.ucRightData[j].dbSoNo{
+					if strings.Compare(data.ucRightData[i].dbSoNo , data.ucRightData[j].dbSoNo) > 0{
 						tmp:=data.ucRightData[i]
 						data.ucRightData[i] = data.ucRightData[j]
 						data.ucRightData[j] = tmp
