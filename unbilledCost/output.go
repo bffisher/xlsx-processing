@@ -55,6 +55,7 @@ func writeBody(xlsx *excelize.File){
 		} 
 	}
 
+	orderUcRightData()
 	for _, ucRight := range(data.ucRightData){
 		if ucRight.leftIdx == DB_IDX_NO_RELATION || ucRight.leftIdx == DB_IDX_NO_DATA{
 			xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, leftBeginColIdx + data.ucObjColIdx), ucRight.dbSoNo)		
@@ -63,6 +64,27 @@ func writeBody(xlsx *excelize.File){
 			rowIdx ++
 		}
 	}
+}
+
+func orderUcRightData()[]uc_right_data_t{
+	result := make([]uc_right_data_t, 0)
+
+	len := len(data.ucRightData)
+	for i:= 0; i<len; i++{
+		if data.ucRightData[i].leftIdx == DB_IDX_NO_RELATION || data.ucRightData[i].leftIdx == DB_IDX_NO_DATA{
+			for j:= i + 1; j < len; j++{
+				if data.ucRightData[j].leftIdx == DB_IDX_NO_RELATION || data.ucRightData[j].leftIdx == DB_IDX_NO_DATA{
+					if data.ucRightData[i].dbSoNo > data.ucRightData[j].dbSoNo{
+						tmp:=data.ucRightData[i]
+						data.ucRightData[i] = data.ucRightData[j]
+						data.ucRightData[j] = tmp
+					}
+				}
+			}
+		}
+	}
+
+	return result
 }
 
 func writeUcHeader(xlsx *excelize.File, beginColIdx int){
