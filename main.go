@@ -7,6 +7,7 @@ import (
 	"xlsx-processing/copa"
 	"xlsx-processing/icbdb"
 	"xlsx-processing/unbilledCost"
+	"xlsx-processing/wip"
 )
 
 func main() {
@@ -19,29 +20,20 @@ func main() {
 
 	switch task {
 	case "copa":
-		execCopa()
+		err := copa.Exec()
+		handleResult("copa", err);
 	case "icbdb":
-		execIcbdb()
+		err := icbdb.Exec()
+		handleResult("icbdb", err);
 	case "UnbilledCost":
-		execUnbilledCost()
+		err := unbilledCost.Exec()
+		handleResult("unbilled cost", err);
+	case "wip":
+		err := wip.Exec()
+		handleResult("wip", err);
 	default:
 		log.Printf("Can not identify the task named '%s'\n", task)
 	}
-}
-
-func execCopa() {
-	err := copa.Exec()
-	handleResult("copa", err);
-}
-
-func execIcbdb() {
-	err := icbdb.Exec()
-	handleResult("icbdb", err);
-}
-
-func execUnbilledCost(){
-	err := unbilledCost.Exec()
-	handleResult("unbilled cost", err);
 }
 
 func handleResult(name string, err error){

@@ -5,13 +5,11 @@ import (
 	"strconv"
 	"strings"
 	"xlsx-processing/util"
-
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
 const DB_IDX_NO_RELATION = -1
 const DB_IDX_NO_DATA = -2
-const WBSNO_LEN = 17
 const RIGHT_CUSTOMER_PREFIX = "P"
 
 type uc_left_data_t struct{
@@ -28,27 +26,17 @@ type uc_right_data_t struct{
 	product, projectName, customerNo, customerName, contractNo string
 }
 
-type col_index_t struct{
-	soNo, wbs, dbSoNo int
-	product, projectName, customerNo, customerName, contractNo int
-}
-
 var data struct {
 	conf *config_t
-	ucXlsx, ioXlsx, gisXlsx, gis2Xlsx *excelize.File
-	ucHeader ,ioHeader, gisHeader []string
+	ucXlsx, ioXlsx, gisXlsx, gis2Xlsx, wipXlsx *excelize.File
+	ucHeader ,ioHeader []string
 	ucData [][]string
 	ucObjColIdx, ucCustColIdx int
 	ucLeftData []uc_left_data_t
 	ucRightData []uc_right_data_t
 }
 
-func newColIndex() col_index_t{
-	return col_index_t{
-		soNo:-1, wbs:-1, dbSoNo:-1,
-		product:-1, projectName:-1,customerNo:-1,customerName:-1,contractNo:-1,
-	}
-}
+
 
 func Exec() error {
 	var err error
@@ -189,7 +177,7 @@ func resolveUCLeftRightRelation()error{
 	log.Println("ICB_ORD..OK!")
 
 	log.Println("GIS...")
-	_,gisColIndex, gisRows := readGIS()
+	_,gisColIndex, gisRows := util.ReadGIS(data.gisXlsx, data.conf.sheets["GIS_SHEET"])
 	findUCRight(gisRows, gisColIndex)
 	log.Println("GIS..OK!")
 
@@ -210,9 +198,9 @@ func resolveUCLeftRightRelation()error{
 	return nil
 }
 
-func readIcbOrd()(error, col_index_t, [][]string){
+func readIcbOrd()(error, util.Col_index_t, [][]string){
 	sheet := data.conf.sheets["IO_SHEET"]
-	colIndex := newColIndex()
+	colIndex := util.NewColIndex()
 	rows := data.ioXlsx.GetRows(sheet)
 	if len(rows) <= 1 {
 		return errors.New("Can not find '" + sheet + "' sheet"), colIndex, nil
@@ -222,15 +210,15 @@ func readIcbOrd()(error, col_index_t, [][]string){
 	
 	for index, name := range data.ioHeader {
 		if name == "SO No." {
-			colIndex.soNo = index
+			colIndex.SoNo = index
 		}else if name == "WBS" {
-			colIndex.wbs = index
+			colIndex.Wbs = index
 		}else if name == "DB SO No." {
-			colIndex.dbSoNo = index
+			colIndex.DbSoNo = index
 		}
 	}
 
-	if colIndex.soNo < 0 || colIndex.wbs < 0 || colIndex.dbSoNo < 0{
+	if colIndex.SoNo < 0 || colIndex.Wbs < 0 || colIndex.DbSoNo < 0{
 		return errors.New("Can not find SO No./WBS/DB SO No. columns"), colIndex, nil
 	}
 
@@ -240,9 +228,9 @@ func readIcbOrd()(error, col_index_t, [][]string){
 		if util.IsEmptyRow(row) {
 			continue
 		}
-		row[colIndex.soNo] = strings.TrimSpace(row[colIndex.soNo])
-		row[colIndex.wbs] = parseWbsNoValue(strings.TrimSpace(row[colIndex.wbs]))
-		row[colIndex.dbSoNo] = strings.TrimSpace(row[colIndex.dbSoNo])
+		row[colIndex.SoNo] = strings.TrimSpace(row[colIndex.SoNo])
+		row[colIndex.Wbs] = util.ParseWbsNoValue(strings.TrimSpace(row[colIndex.Wbs]))
+		row[colIndex.DbSoNo] = strings.TrimSpace(row[colIndex.DbSoNo])
 
 		newRows = append(newRows, row)
 	}
@@ -250,63 +238,12 @@ func readIcbOrd()(error, col_index_t, [][]string){
 	return nil, colIndex, newRows
 }
 
-func readGIS()(error, col_index_t, [][]string){
-	sheet := data.conf.sheets["GIS_SHEET"]
-	colIndex := newColIndex()
-	headerLineNo := 5
-	rows := data.gisXlsx.GetRows(sheet)
-	if len(rows) <= headerLineNo {
-		return errors.New("Can not find '" + sheet + "' sheet header"), colIndex, nil
-	}
 
-	data.gisHeader = rows[headerLineNo - 1]
-
-
-	for index, name := range data.gisHeader {
-		name = strings.TrimSpace(name)
-		if name == "SAP Order No.                   Segment  SO Number" {
-			colIndex.dbSoNo = index
-		}else if name == "CCM--WBS No." {
-			colIndex.wbs = index
-		}else if name == "SAP Order No.                 Operation  SO number" {
-			colIndex.soNo = index
-		}else if name == "Product" {
-			colIndex.product = index
-		}else if name == "Project Name" {
-			colIndex.projectName = index
-		}else if name == "Customer No." {
-			colIndex.customerNo = index
-		}else if name == "Customer Name" {
-			colIndex.customerName = index
-		}else if name == "Contract No." {
-			colIndex.contractNo = index
-		}
-	}
-
-	if colIndex.soNo < 0 || colIndex.wbs < 0 || colIndex.dbSoNo < 0{
-		return errors.New("Can not find SO No./WBS/DB SO No. columns"), colIndex, nil
-	}
-
-	rows = rows[headerLineNo:]
-	var newRows [][]string
-	for _, row := range rows {
-		if util.IsEmptyRow(row) {
-			continue
-		}
-		row[colIndex.soNo] = strings.TrimSpace(row[colIndex.soNo])
-		row[colIndex.wbs] = parseWbsNoValue(strings.TrimSpace(row[colIndex.wbs]))
-		row[colIndex.dbSoNo] = strings.TrimSpace(row[colIndex.dbSoNo])
-
-		newRows = append(newRows, row)
-	}
-	
-	return nil, colIndex, newRows
-}
 
 func findUCRightByGIS2()error{
 	log.Println("GIS2...")
 	for _, item := range data.conf.gis2Sheets{
-		err,colIdex,rows := readGIS2Sheet(item)
+		err,colIdex,rows := util.ReadGIS2Sheet(data.gis2Xlsx, item[0], item[1])
 		if(err != nil){
 			continue
 		}
@@ -324,7 +261,7 @@ func findUCRightByGIS2()error{
 func findUCLeftByGIS2()error{
 	log.Println("GIS2...")
 	for _, item := range data.conf.gis2Sheets{
-		err,colIdex,rows := readGIS2Sheet(item)
+		err,colIdex,rows := util.ReadGIS2Sheet(data.gis2Xlsx, item[0], item[1])
 		if(err != nil){
 			continue
 		}
@@ -339,98 +276,35 @@ func findUCLeftByGIS2()error{
 	return nil
 }
 
-func readGIS2Sheet(item [2]string)(error, col_index_t, [][]string){
-	sheet, headerLineNoStr := item[0], item[1]
-		log.Println(sheet + "...")
-		headerLineNo, err := strconv.Atoi(headerLineNoStr)
-		colIndex := newColIndex()
-		if(err != nil) {
-			log.Printf("Header Line No error(%s)\n", headerLineNoStr)
-			return err,colIndex,nil
-		}
 
-		rows := data.gis2Xlsx.GetRows(sheet)
-		if len(rows) <= headerLineNo {
-			log.Printf("Can not find '%s' sheet\n", sheet)
-			return err,colIndex,nil
-		}
 
-		for index, name := range rows[headerLineNo - 1] {
-			if name == "" {
-				continue
-			}
-			name = strings.ToLower(strings.TrimSpace(name))
-
-			if colIndex.soNo == -1 && strings.Contains(name, "operation") {
-				colIndex.soNo = index
-			} else if colIndex.wbs == -1 && strings.Contains(name, "ccm--wbs") {
-				colIndex.wbs = index
-			} else if colIndex.dbSoNo == -1 && strings.Contains(name, "segment") {
-				colIndex.dbSoNo = index
-			} else if colIndex.product == -1 && strings.TrimSpace(name) == "product" {
-				colIndex.product = index
-			} else if colIndex.product == -1 && strings.TrimSpace(name) == "project name" {
-				colIndex.projectName = index
-			} else if colIndex.product == -1 && strings.TrimSpace(name) == "customer no." {
-				colIndex.customerNo = index
-			} else if colIndex.product == -1 && strings.TrimSpace(name) == "customer name" {
-				colIndex.customerName = index
-			} else if colIndex.product == -1 && strings.TrimSpace(name) == "contract no" {
-				colIndex.contractNo = index
-			}
-		}
-
-		if colIndex.soNo == -1 {
-			return errors.New("Can not find Operation No column in '" + sheet + "' sheet"),colIndex,nil
-		}
-		if colIndex.dbSoNo == -1 {
-			return errors.New("Can not find Segment No column in '" + sheet + "' sheet"),colIndex,nil
-		}
-
-		rows = rows[headerLineNo:]
-		var newRows [][]string
-		for _, row := range rows {
-			if util.IsEmptyRow(row) {
-				continue
-			}
-			row[colIndex.soNo] = strings.TrimSpace(row[colIndex.soNo])
-			row[colIndex.dbSoNo] = strings.TrimSpace(row[colIndex.dbSoNo])
-			if colIndex.wbs >= 0 {
-				row[colIndex.wbs] = parseWbsNoValue(strings.TrimSpace(row[colIndex.wbs]))
-			}
-			newRows = append(newRows, row)
-		}
-
-		return nil,colIndex,newRows
-}
-
-func findUCRight(rows [][]string, colIndex col_index_t)error{
+func findUCRight(rows [][]string, colIndex util.Col_index_t)error{
 	for leftIndex, left := range data.ucLeftData{
 		ucObjVal := data.ucData[left.idx][data.ucObjColIdx]
 		for _, row := range rows{
 			wbsVal := ""
-			if(colIndex.wbs >= 0){
-				wbsVal = row[colIndex.wbs]
+			if(colIndex.Wbs >= 0){
+				wbsVal = row[colIndex.Wbs]
 			}
-			dbSoNoVal := strings.TrimSpace(row[colIndex.dbSoNo])
+			dbSoNoVal := strings.TrimSpace(row[colIndex.DbSoNo])
 			if(wbsVal != "" && ucObjVal == wbsVal || ucObjVal == dbSoNoVal){
-				if colIndex.product > 0{
-					data.ucLeftData[leftIndex].product = row[colIndex.product]
+				if colIndex.Product > 0{
+					data.ucLeftData[leftIndex].product = row[colIndex.Product]
 				}
-				if colIndex.projectName > 0 {
-					data.ucLeftData[leftIndex].projectName = row[colIndex.projectName]
+				if colIndex.ProjectName > 0 {
+					data.ucLeftData[leftIndex].projectName = row[colIndex.ProjectName]
 				}
-				if colIndex.customerNo > 0 {
-					data.ucLeftData[leftIndex].customerNo = row[colIndex.customerNo]
+				if colIndex.CustomerNo > 0 {
+					data.ucLeftData[leftIndex].customerNo = row[colIndex.CustomerNo]
 				}
-				if colIndex.customerName > 0 {
-					data.ucLeftData[leftIndex].customerName = row[colIndex.customerName]
+				if colIndex.CustomerName > 0 {
+					data.ucLeftData[leftIndex].customerName = row[colIndex.CustomerName]
 				}
-				if colIndex.contractNo > 0 {
-					data.ucLeftData[leftIndex].contractNo = row[colIndex.contractNo]
+				if colIndex.ContractNo > 0 {
+					data.ucLeftData[leftIndex].contractNo = row[colIndex.ContractNo]
 				}
 
-				soNoVal := strings.TrimSpace(row[colIndex.soNo])
+				soNoVal := strings.TrimSpace(row[colIndex.SoNo])
 				isFindRight := false
 				for rightIndx, right := range data.ucRightData{
 					if right.leftIdx != DB_IDX_NO_RELATION && right.leftIdx != DB_IDX_NO_DATA{
@@ -460,7 +334,7 @@ func findUCRight(rows [][]string, colIndex col_index_t)error{
 							break;
 						}
 					}
-					
+
 					if !isAdded {
 						data.ucLeftData[leftIndex].noRightSoNoList = append(data.ucLeftData[leftIndex].noRightSoNoList, soNoVal)
 					}
@@ -471,7 +345,7 @@ func findUCRight(rows [][]string, colIndex col_index_t)error{
 	return nil
 }
 
-func findUCLeft(rows [][]string, colIndex col_index_t)error{
+func findUCLeft(rows [][]string, colIndex util.Col_index_t)error{
 	for rightIndex, right := range data.ucRightData{
 		if right.leftIdx != DB_IDX_NO_RELATION && right.leftIdx != DB_IDX_NO_DATA{
 			continue
@@ -479,32 +353,32 @@ func findUCLeft(rows [][]string, colIndex col_index_t)error{
 
 		ucObjVal := data.ucData[right.idx][data.ucObjColIdx]
 		for _, row := range rows{
-			soNoVal := strings.TrimSpace(row[colIndex.soNo])
+			soNoVal := strings.TrimSpace(row[colIndex.SoNo])
 			if(ucObjVal == soNoVal){
-				if colIndex.product > 0{
-					data.ucRightData[rightIndex].product = row[colIndex.product]
+				if colIndex.Product > 0{
+					data.ucRightData[rightIndex].product = row[colIndex.Product]
 				}
-				if colIndex.projectName > 0 {
-					data.ucRightData[rightIndex].projectName = row[colIndex.projectName]
+				if colIndex.ProjectName > 0 {
+					data.ucRightData[rightIndex].projectName = row[colIndex.ProjectName]
 				}
-				if colIndex.customerNo > 0 {
-					data.ucRightData[rightIndex].customerNo = row[colIndex.customerNo]
+				if colIndex.CustomerNo > 0 {
+					data.ucRightData[rightIndex].customerNo = row[colIndex.CustomerNo]
 				}
-				if colIndex.customerName > 0 {
-					data.ucRightData[rightIndex].customerName = row[colIndex.customerName]
+				if colIndex.CustomerName > 0 {
+					data.ucRightData[rightIndex].customerName = row[colIndex.CustomerName]
 				}
-				if colIndex.contractNo > 0 {
-					data.ucRightData[rightIndex].contractNo = row[colIndex.contractNo]
+				if colIndex.ContractNo > 0 {
+					data.ucRightData[rightIndex].contractNo = row[colIndex.ContractNo]
 				}
 
 				wbsVal := ""
-				if(colIndex.wbs >= 0){
-					wbsVal = row[colIndex.wbs]
+				if(colIndex.Wbs >= 0){
+					wbsVal = row[colIndex.Wbs]
 				}
 				if wbsVal != ""{
 					data.ucRightData[rightIndex].dbSoNo = wbsVal
 				}else{
-					dbSoNoVal := strings.TrimSpace(row[colIndex.dbSoNo])
+					dbSoNoVal := strings.TrimSpace(row[colIndex.DbSoNo])
 					data.ucRightData[rightIndex].dbSoNo = dbSoNoVal
 				}
 				data.ucRightData[rightIndex].leftIdx = DB_IDX_NO_DATA
@@ -520,13 +394,7 @@ func parseUCObjValue(val string) string{
 		return val[0: index]
 	}
 
-	return parseWbsNoValue(val)
+	return util.ParseWbsNoValue(val)
 }
 
-func parseWbsNoValue(val string)string{
-	if len(val) > WBSNO_LEN{
-		return val[0:WBSNO_LEN]
-	}
 
-	return val
-}
