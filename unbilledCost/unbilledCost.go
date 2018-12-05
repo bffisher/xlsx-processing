@@ -453,6 +453,14 @@ func findUCRight(rows [][]string, colIndex col_index_t)error{
 							break;
 						}
 					}
+
+					for _,addedIdx := range(data.ucLeftData[leftIndex].rightIdxs){
+						if(data.ucData[addedIdx][data.ucObjColIdx] == soNoVal){
+							isAdded = true
+							break;
+						}
+					}
+					
 					if !isAdded {
 						data.ucLeftData[leftIndex].noRightSoNoList = append(data.ucLeftData[leftIndex].noRightSoNoList, soNoVal)
 					}

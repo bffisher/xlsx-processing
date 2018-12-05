@@ -46,11 +46,13 @@ func writeBody(xlsx *excelize.File){
 		
 		for _, ucRightIdx := range(ucLeft.rightIdxs){
 			writeUcData(xlsx, ucRightIdx, rowIdx, rightBeginColIdx)
+			writeExDataForLeft(xlsx, ucLeft, rowIdx, extColIdx)
 			rowIdx ++
 		}
 
 		for _, soNo := range(ucLeft.noRightSoNoList){
 			xlsx.SetCellStr(OUTPUT_SHEET, util.Axis(rowIdx, rightBeginColIdx + data.ucObjColIdx), soNo)
+			writeExDataForLeft(xlsx, ucLeft, rowIdx, extColIdx)
 			rowIdx ++
 		} 
 	}
