@@ -105,19 +105,19 @@ func ReadGIS2Sheet(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Co
 
 			if colIndex.SoNo == -1 && strings.Contains(name, "operation") {
 				colIndex.SoNo = index
-			} else if colIndex.Wbs == -1 && strings.Contains(name, "ccm--wbs") {
+			} else if colIndex.Wbs == -1 && strings.Contains(name, "wbs") {
 				colIndex.Wbs = index
 			} else if colIndex.DbSoNo == -1 && strings.Contains(name, "segment") {
 				colIndex.DbSoNo = index
 			} else if colIndex.Product == -1 && strings.TrimSpace(name) == "product" {
 				colIndex.Product = index
-			} else if colIndex.ProjectName == -1 && strings.TrimSpace(name) == "project name" {
+			} else if colIndex.ProjectName == -1 && strings.Contains(name, "project name"){
 				colIndex.ProjectName = index
-			} else if colIndex.CustomerNo == -1 && strings.TrimSpace(name) == "customer no." {
+			} else if colIndex.CustomerNo == -1 && strings.Contains(name, "customer no") {
 				colIndex.CustomerNo = index
-			} else if colIndex.CustomerName == -1 && strings.TrimSpace(name) == "customer name" {
+			} else if colIndex.CustomerName == -1 && strings.Contains(name, "customer name") {
 				colIndex.CustomerName = index
-			} else if colIndex.ContractNo == -1 && strings.TrimSpace(name) == "contract no" {
+			} else if colIndex.ContractNo == -1 && strings.Contains(name, "contract no") {
 				colIndex.ContractNo = index
 			}
 		}
