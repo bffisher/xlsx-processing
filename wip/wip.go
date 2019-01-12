@@ -40,12 +40,14 @@ func Exec()error{
 	data.result = make([]resutl_t, 0)
 	readWip()
 
-	_,gisColIndex, gisRows := util.ReadGIS(data.gisXlsx, data.conf.sheets["GIS_SHEET"])
+	log.Println("GIS1...")
+	_,gisColIndex, gisRows := util.ReadGIS19(data.gisXlsx, data.conf.sheets["GIS_SHEET"])
 	find(gisRows, gisColIndex)
+	log.Println("GIS1..OK!")
 
 	log.Println("GIS2...")
 	for _, item := range data.conf.gis2Sheets{
-		err,colIdex,rows := util.ReadGIS2Sheet(data.gis2Xlsx, item[0], item[1])
+		err,colIdex,rows := util.ReadGIS1718(data.gis2Xlsx, item[0], item[1])
 		if(err != nil){
 			continue
 		}
@@ -146,9 +148,9 @@ func find(rows [][]string, colIndex util.Col_index_t){
 		wipWbs := util.ParseWbsNoValue(wipRow[data.wipColIdx.Wbs])
 		wipSoNo := wipRow[data.wipColIdx.SoNo]
 		for _, row := range(rows){
-			if wipWbs != "" && colIndex.Wbs > -1 && wipWbs == row[colIndex.Wbs] || wipSoNo == row[colIndex.SoNo]{
+			if wipWbs != "" && colIndex.Wbs > -1 && wipWbs == row[colIndex.Wbs]|| colIndex.SoNo >- 1 && wipSoNo == row[colIndex.SoNo]{
 				resItem := resutl_t{}
-				if colIndex.Product > -1{
+				if colIndex.Product > -1{ 
 					resItem.product = row[colIndex.Product]
 				}
 				if colIndex.ProjectName > -1{
@@ -165,6 +167,9 @@ func find(rows [][]string, colIndex util.Col_index_t){
 				}
 				resItem.idx = wipIdx + data.wipHeaderRowIdx + 1
 				data.result = append(data.result, resItem)
+				//设为"_ZPP5"，表示已找到的，下次不再查找
+				data.wipData[wipIdx][data.wipOrderTypeColIdx] = "_ZPP5"
+				break;
 			}
 		}
 	}
@@ -174,6 +179,16 @@ func output(){
 	log.Println("Output...")
 
 	sheet := data.conf.sheets["WIP_SHEET"]
+
+	//clear
+	for index,_ := range(data.wipData){
+		data.wipXlsx.SetCellValue(sheet, util.Axis(1+index, data.wipColIdx.Product), "")
+		data.wipXlsx.SetCellValue(sheet, util.Axis(1+index, data.wipColIdx.ProjectName), "")
+		data.wipXlsx.SetCellValue(sheet, util.Axis(1+index, data.wipColIdx.ProjectName), "")
+		data.wipXlsx.SetCellValue(sheet, util.Axis(1+index, data.wipColIdx.CustomerName), "")
+		data.wipXlsx.SetCellValue(sheet, util.Axis(1+index, data.wipColIdx.ContractNo), "")
+	}
+	
 	for _, resItem := range(data.result){
 		if data.wipColIdx.Product > -1 {
 			data.wipXlsx.SetCellValue(sheet, util.Axis(resItem.idx, data.wipColIdx.Product), resItem.product)
@@ -182,7 +197,7 @@ func output(){
 			data.wipXlsx.SetCellValue(sheet, util.Axis(resItem.idx, data.wipColIdx.ProjectName), resItem.projectName)
 		}
 		if data.wipColIdx.CustomerNo > -1 {
-			data.wipXlsx.SetCellValue(sheet, util.Axis(resItem.idx, data.wipColIdx.CustomerNo), resItem.customerNo)
+			data.wipXlsx.SetCellValue(sheet, util.Axis(resItem.idx, data.wipColIdx.ProjectName), resItem.customerNo)
 		}
 		if data.wipColIdx.CustomerName > -1 {
 			data.wipXlsx.SetCellValue(sheet, util.Axis(resItem.idx, data.wipColIdx.CustomerName), resItem.customerName)

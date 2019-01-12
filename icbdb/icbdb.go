@@ -31,11 +31,12 @@ type db_t struct {
 
 type data_t struct {
 	conf         *config_t
-	odXlsx, gisXlsx, mcXlsx       *excelize.File
+	odXlsx, gisXlsx, mcXlsx, gis19Xlsx,vi19Xlsx *excelize.File
 	odCopaRows   [][]string
 	odCopaHeader map[string]int
 	icbList      []icb_t
 	dbList       []db_t
+	vi19sheetInfo [][2] string
 }
 
 type other_sheet_data_t struct{
@@ -61,6 +62,12 @@ func Exec() error {
 	}
 	data.conf = conf
 
+	data.vi19sheetInfo = append(data.vi19sheetInfo, [2]string{"Order List FY2019", "4"})
+	data.vi19sheetInfo = append(data.vi19sheetInfo, [2]string{"Orderlist_VI Parts FY2019", "6"})
+	data.vi19sheetInfo = append(data.vi19sheetInfo, [2]string{"Order List FY2018", "4"})
+	data.vi19sheetInfo = append(data.vi19sheetInfo, [2]string{"Orderlist_VI Parts FY2018", "6"})
+
+
 	odXlsx, err := excelize.OpenFile(util.Env().FilePath + conf.files["OD"])
 	if err != nil {
 		return err
@@ -73,9 +80,19 @@ func Exec() error {
 	if err != nil {
 		return err
 	}
+	gis19Xlsx, err := excelize.OpenFile(util.Env().FilePath + conf.files["GIS19"])
+	if err != nil {
+		return err
+	}
+	vi19Xlsx, err := excelize.OpenFile(util.Env().FilePath + conf.files["VI19"])
+	if err != nil {
+		return err
+	}
 	data.odXlsx = odXlsx
 	data.gisXlsx = gisXlsx
 	data.mcXlsx = mcXlsx
+	data.gis19Xlsx = gis19Xlsx
+	data.vi19Xlsx = vi19Xlsx
 
 	odCopaRows := odXlsx.GetRows(conf.sheets["OD_COPA"])
 	if len(odCopaRows) < 2 {
@@ -141,9 +158,6 @@ func resolveIcbDbRelation(data *data_t) error {
 	if err != nil {
 		return err
 	}
-	// if !isLeft {
-	// 	return nil
-	// }
 
 	err =  findDbInDblistByOther(data, data.gisXlsx, data.conf.gisSheets)
 	if err != nil {
@@ -151,6 +165,16 @@ func resolveIcbDbRelation(data *data_t) error {
 	}
 
 	err = findDbInDblistByOther(data, data.mcXlsx, data.conf.mcSheets)
+	if err != nil {
+		return err
+	}
+
+	err = findDbInDblistByGis19(data)
+	if err != nil {
+		return err
+	}
+
+	err = findDbInDblistByVi19(data)
 	if err != nil {
 		return err
 	}
@@ -186,9 +210,6 @@ func findDbInDblistByOther(data *data_t, xlsx *excelize.File, sheets [][3]string
 		}
 
 		findDbInDbList(data, sheetData.rows[sheetData.headerIdx:], sheetData.soNoColIdx, sheetData.wbsColIdx, sheetData.dbSoNoColIdx)
-		// if !isLeft {
-		// 	break
-		// }
 	}
 	return nil
 }
@@ -245,6 +266,28 @@ func getOtherSheetData(data *data_t, xlsx *excelize.File, sheetInfo [3]string) (
 	return result, nil
 }
 
+func findDbInDblistByGis19(data *data_t)error{
+	log.Printf("[%s] %s", data.gis19Xlsx.Path, "Sheet1")
+	err,colIndex, rows := util.ReadGIS19(data.gis19Xlsx, "Sheet1")
+	if(err!=nil){
+		return err
+	}
+	findDbInDbList(data, rows, colIndex.SoNo, colIndex.Wbs, colIndex.DbSoNo)
+	return nil
+}
+
+func findDbInDblistByVi19(data *data_t)error{
+	for _,sheetInfo := range(data.vi19sheetInfo){
+		log.Printf("[%s] %s", data.vi19Xlsx.Path, sheetInfo[0])
+		err,colIndex, rows := util.ReadVi19(data.vi19Xlsx, sheetInfo[0], sheetInfo[1])
+		if(err!=nil){
+			return err
+		}
+		findDbInDbList(data, rows, colIndex.SoNo, colIndex.Wbs, colIndex.DbSoNo)
+	}
+	return nil
+}
+
 func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNoColIdx int) {
 	coapSoNoColIdx := data.odCopaHeader["OD_COPA_SO"]
 	coapWbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
@@ -299,48 +342,8 @@ func findDbInDbList(data *data_t, rows [][]string, soNoColIdx, wbsColIdx, dbSoNo
 			}
 		}
 	}
-	// return isLeft
 }
-/*
-func matchODCopaWBS(data *data_t, wbs string, rowIdx int) int {
-	wbsColIdx := data.odCopaHeader["OD_COPA_WBS"]
-	// productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
 
-	for index, db := range data.dbList {
-		dbWbs := strings.TrimSpace(data.odCopaRows[db.idx][wbsColIdx])
-		if dbWbs != "" && strings.Contains(wbs, dbWbs[0:17]) {
-			// icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
-			// dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
-			// if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
-				return index
-			// }
-		}
-	}
-	return -1
-}*/
-/*
-func matcODCopaSoNo(data *data_t, dbSoNo string, rowIdx int) int {
-	soNoColIdx := data.odCopaHeader["OD_COPA_SO"]
-	// productHierarchyColIdx := data.odCopaHeader["OD_COPA_PH"]
-
-	for index, db := range data.dbList {
-		if dbSoNo == strings.TrimSpace(data.odCopaRows[db.idx][soNoColIdx]) {
-			// icbProductHierarchy := strings.TrimSpace(data.odCopaRows[rowIdx][productHierarchyColIdx])
-			// dbProductHierarchy := strings.TrimSpace(data.odCopaRows[db.idx][productHierarchyColIdx])
-			// if matchProductHierarchy(data, icbProductHierarchy, dbProductHierarchy) {
-				return index
-			// }
-		}
-	}
-	return -1
-}*/
-
-// func matchProductHierarchy(data *data_t, val1, val2 string) bool {
-// 	_, name1 := util.SplitCodeName(val1)
-// 	_, name2 := util.SplitCodeName(val2)
-
-// 	return data.conf.products[name1] == data.conf.products[name2]
-// }
 func findProvinceAndClassfication(data *data_t)error{
 	for _,sheetInfo:= range data.conf.gisSheets{
 		
@@ -400,6 +403,54 @@ func findProvinceAndClassfication(data *data_t)error{
 					}
 				}
 			}
+	}
+
+	log.Printf("[%s] %s", data.gis19Xlsx.Path, "Sheet1")
+	err,gis19ColIndex, gis19Rows := util.ReadGIS19(data.gis19Xlsx, "Sheet1")
+	if(err!=nil){
+		return err
+	}
+	gis19SheetData := other_sheet_data_t{}
+	gis19SheetData.classficationColIdx = gis19ColIndex.Classfication
+	gis19SheetData.soNoColIdx = gis19ColIndex.SoNo
+	gis19SheetData.wbsColIdx = gis19ColIndex.Wbs
+	gis19SheetData.dbSoNoColIdx = gis19ColIndex.DbSoNo
+	for index, db:= range data.dbList{
+		if db.classfication == "" && gis19ColIndex.Classfication >= 0{
+			data.dbList[index].classfication = findColValInOterSheetByDb(data, &db, gis19Rows,	&gis19SheetData, gis19SheetData.classficationColIdx, "Y")
+		}
+	}
+	for index, icb := range data.icbList {
+		if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
+			if icb.classfication == "" && gis19SheetData.classficationColIdx >= 0{
+				data.icbList[index].classfication = findColValInOterSheetByIcb(data, &icb, gis19Rows, &gis19SheetData, gis19SheetData.classficationColIdx, "N")
+			}
+		}
+	}
+
+	for _,sheetInfo := range(data.vi19sheetInfo){
+		log.Printf("[%s] %s", data.vi19Xlsx.Path, sheetInfo[0])
+		err,colIndex, rows := util.ReadVi19(data.vi19Xlsx, sheetInfo[0], sheetInfo[1])
+		if(err!=nil){
+			return err
+		}
+		sheetData := other_sheet_data_t{}
+		sheetData.classficationColIdx = colIndex.Classfication
+		sheetData.soNoColIdx = colIndex.SoNo
+		sheetData.wbsColIdx = colIndex.Wbs
+		sheetData.dbSoNoColIdx = colIndex.DbSoNo
+		for index, db:= range data.dbList{
+			if db.classfication == "" && sheetData.classficationColIdx >= 0{
+				data.dbList[index].classfication = findColValInOterSheetByDb(data, &db, rows,	&sheetData, sheetData.classficationColIdx, "Y")
+			}
+		}
+		for index, icb := range data.icbList {
+			if icb.dbIdx == _DB_IDX_NO_DATA || icb.dbIdx == _DB_IDX_NO_RELATION{
+				if icb.classfication == "" && sheetData.classficationColIdx >= 0{
+					data.icbList[index].classfication = findColValInOterSheetByIcb(data, &icb, rows, &sheetData, sheetData.classficationColIdx, "N")
+				}
+			}
+		}
 	}
 	return nil
 }

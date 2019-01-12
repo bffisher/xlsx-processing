@@ -9,10 +9,12 @@ import(
 )
 
 const WBSNO_LEN = 17
+const WBSNO_POC_LEN = 21
 
 type Col_index_t struct{
 	SoNo, Wbs, DbSoNo int
 	Product, ProjectName, CustomerNo, CustomerName, ContractNo int
+	Classfication int
 }
 
 func NewColIndex() Col_index_t{
@@ -23,6 +25,13 @@ func NewColIndex() Col_index_t{
 }
 
 func ParseWbsNoValue(val string)string{
+	if strings.Index(val, "POC") > 0{
+		if len(val) > WBSNO_POC_LEN{
+			return val[0:WBSNO_POC_LEN]
+		}
+
+		return val
+	}
 	if len(val) > WBSNO_LEN{
 		return val[0:WBSNO_LEN]
 	}
@@ -30,7 +39,7 @@ func ParseWbsNoValue(val string)string{
 	return val
 }
 
-func ReadGIS(xlsx *excelize.File, sheet string)(error, Col_index_t, [][]string){
+func ReadGIS19(xlsx *excelize.File, sheet string)(error, Col_index_t, [][]string){
 	colIndex := NewColIndex()
 	headerLineNo := 5
 	rows := xlsx.GetRows(sheet)
@@ -59,6 +68,8 @@ func ReadGIS(xlsx *excelize.File, sheet string)(error, Col_index_t, [][]string){
 			colIndex.CustomerName = index
 		}else if name == "Contract No." {
 			colIndex.ContractNo = index
+		}else if strings.Contains(name, "classfication"){
+			colIndex.Classfication = index
 		}
 	}
 
@@ -82,7 +93,7 @@ func ReadGIS(xlsx *excelize.File, sheet string)(error, Col_index_t, [][]string){
 	return nil, colIndex, newRows
 }
 
-func ReadGIS2Sheet(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Col_index_t, [][]string){
+func ReadGIS1718(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Col_index_t, [][]string){
 		log.Println(sheet + "...")
 		headerLineNo, err := strconv.Atoi(headerLineNoStr)
 		colIndex := NewColIndex()
@@ -98,6 +109,7 @@ func ReadGIS2Sheet(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Co
 		}
 
 		for index, name := range rows[headerLineNo - 1] {
+			
 			if name == "" {
 				continue
 			}
@@ -119,14 +131,9 @@ func ReadGIS2Sheet(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Co
 				colIndex.CustomerName = index
 			} else if colIndex.ContractNo == -1 && strings.Contains(name, "contract no") {
 				colIndex.ContractNo = index
+			}else if colIndex.Classfication == -1 &&  strings.Contains(name, "classfication"){
+				colIndex.Classfication = index
 			}
-		}
-
-		if colIndex.SoNo == -1 {
-			return errors.New("Can not find Operation No column in '" + sheet + "' sheet"),colIndex,nil
-		}
-		if colIndex.DbSoNo == -1 {
-			return errors.New("Can not find Segment No column in '" + sheet + "' sheet"),colIndex,nil
 		}
 
 		rows = rows[headerLineNo:]
@@ -135,8 +142,12 @@ func ReadGIS2Sheet(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Co
 			if IsEmptyRow(row) {
 				continue
 			}
-			row[colIndex.SoNo] = strings.TrimSpace(row[colIndex.SoNo])
-			row[colIndex.DbSoNo] = strings.TrimSpace(row[colIndex.DbSoNo])
+			if colIndex.SoNo >= 0{
+				row[colIndex.SoNo] = strings.TrimSpace(row[colIndex.SoNo])
+			}
+			if colIndex.DbSoNo >= 0{
+				row[colIndex.DbSoNo] = strings.TrimSpace(row[colIndex.DbSoNo])
+			}
 			if colIndex.Wbs >= 0 {
 				row[colIndex.Wbs] = ParseWbsNoValue(strings.TrimSpace(row[colIndex.Wbs]))
 			}
@@ -144,4 +155,8 @@ func ReadGIS2Sheet(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Co
 		}
 
 		return nil,colIndex,newRows
+}
+
+func ReadVi19(xlsx *excelize.File, sheet, headerLineNoStr string)(error, Col_index_t, [][]string){
+	return ReadGIS1718(xlsx, sheet, headerLineNoStr);
 }

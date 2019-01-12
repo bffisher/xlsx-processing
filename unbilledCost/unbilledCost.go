@@ -170,28 +170,35 @@ func splitUC()error{
 
 func resolveUCLeftRightRelation()error{
 	log.Print("Matching... ")
+
 	log.Print("Left... ")
-	log.Println("ICB_ORD...")
-	_ ,icbOrdColIndex, icbOrdRows := readIcbOrd()
-	findUCRight(icbOrdRows, icbOrdColIndex)
-	log.Println("ICB_ORD..OK!")
 
 	log.Println("GIS...")
-	_,gisColIndex, gisRows := util.ReadGIS(data.gisXlsx, data.conf.sheets["GIS_SHEET"])
-	findUCRight(gisRows, gisColIndex)
+	_,gisColIndex, gisRows := util.ReadGIS19(data.gisXlsx, data.conf.sheets["GIS_SHEET"])
+	findUCRight(gisRows, gisColIndex, false)
 	log.Println("GIS..OK!")
 
 	findUCRightByGIS2()
+
+	log.Println("ICB_ORD...")
+	_ ,icbOrdColIndex, icbOrdRows := readIcbOrd()
+	findUCRight(icbOrdRows, icbOrdColIndex, true)
+	log.Println("ICB_ORD..OK!")
+
 	log.Println("Left... OK!")
 
 	log.Print("Right... ")
-	log.Println("ICB_ORD...")
-	findUCLeft(icbOrdRows, icbOrdColIndex)
-	log.Println("ICB_ORD..OK!")
+
 	log.Println("GIS...")
 	findUCLeft(gisRows, gisColIndex)
 	log.Println("GIS..OK!")
+
 	findUCLeftByGIS2()
+
+	log.Println("ICB_ORD...")
+	findUCLeft(icbOrdRows, icbOrdColIndex)
+	log.Println("ICB_ORD..OK!")
+	
 	log.Print("Right...OK")
 
 	log.Println("Matching... OK!")
@@ -238,17 +245,15 @@ func readIcbOrd()(error, util.Col_index_t, [][]string){
 	return nil, colIndex, newRows
 }
 
-
-
 func findUCRightByGIS2()error{
 	log.Println("GIS2...")
 	for _, item := range data.conf.gis2Sheets{
-		err,colIdex,rows := util.ReadGIS2Sheet(data.gis2Xlsx, item[0], item[1])
+		err,colIdex,rows := util.ReadGIS1718(data.gis2Xlsx, item[0], item[1])
 		if(err != nil){
 			continue
 		}
 
-		err = findUCRight(rows, colIdex)
+		err = findUCRight(rows, colIdex, false)
 		if(err != nil) {
 			continue
 		}
@@ -261,7 +266,7 @@ func findUCRightByGIS2()error{
 func findUCLeftByGIS2()error{
 	log.Println("GIS2...")
 	for _, item := range data.conf.gis2Sheets{
-		err,colIdex,rows := util.ReadGIS2Sheet(data.gis2Xlsx, item[0], item[1])
+		err,colIdex,rows := util.ReadGIS1718(data.gis2Xlsx, item[0], item[1])
 		if(err != nil){
 			continue
 		}
@@ -276,10 +281,12 @@ func findUCLeftByGIS2()error{
 	return nil
 }
 
-
-
-func findUCRight(rows [][]string, colIndex util.Col_index_t)error{
+func findUCRight(rows [][]string, colIndex util.Col_index_t, isExistBreak bool)error{
 	for leftIndex, left := range data.ucLeftData{
+		if isExistBreak && len(left.rightIdxs) > 0{
+			//如果已经找到，则不继续再找
+			continue;
+		}
 		ucObjVal := data.ucData[left.idx][data.ucObjColIdx]
 		for _, row := range rows{
 			wbsVal := ""
